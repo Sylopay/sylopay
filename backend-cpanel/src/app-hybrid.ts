@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from 'dotenv';
+import * as etherfuseService from './services/etherfuse';
+import * as sorobanService from './services/soroban';
+import { verifyEtherfuseWebhook } from './middleware/webhookVerify';
 
 config();
 
@@ -16,6 +19,12 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Request logger
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 
 // In-memory storage for contracts
 const contracts: any[] = [];
@@ -371,6 +380,170 @@ app.get('/api/stellar/transactions/:accountId', async (req, res) => {
   });
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// ROTAS ETHERFUSE — On-ramp / Off-ramp
+// ────────────────────────────────────────────────────────────────────────────
+
+// POST /api/etherfuse/quote-onramp
+// Gera uma cotação BRL → USDC e retorna dados para o cliente
+app.post('/api/etherfuse/quote-onramp', async (req, res) => {
+  try {
+    const { amount_brl, wallet_address } = req.body;
+    if (!amount_brl || amount_brl <= 0) {
+      return res.status(400).json({ error: 'amount_brl inválido' });
+    }
+    if (!wallet_address) {
+      return res.status(400).json({ error: 'wallet_address obrigatório' });
+    }
+    const quote = await etherfuseService.criarQuoteOnramp(amount_brl, wallet_address);
+    res.json({ success: true, quote });
+  } catch (error) {
+    console.error('[Route] /api/etherfuse/quote-onramp error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao criar quote' });
+  }
+});
+
+// POST /api/etherfuse/order
+// Cria uma ordem de pagamento (retorna chave Pix)
+app.post('/api/etherfuse/order', async (req, res) => {
+  try {
+    const { quoteId } = req.body;
+    if (!quoteId) return res.status(400).json({ error: 'quoteId obrigatório' });
+    const order = await etherfuseService.criarOrderOnramp(quoteId);
+    res.json({ success: true, order });
+  } catch (error) {
+    console.error('[Route] /api/etherfuse/order error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao criar order' });
+  }
+});
+
+// GET /api/etherfuse/order/:orderId
+// Polling de status da ordem
+app.get('/api/etherfuse/order/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await etherfuseService.buscarOrder(orderId);
+    res.json({ success: true, order });
+  } catch (error) {
+    console.error('[Route] /api/etherfuse/order GET error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao buscar order' });
+  }
+});
+
+// GET /api/etherfuse/assets
+// Lista ativos disponíveis na Stellar
+app.get('/api/etherfuse/assets', async (_req, res) => {
+  try {
+    const assets = await etherfuseService.listarAtivos();
+    res.json({ success: true, assets });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao listar ativos' });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// ROTAS SOROBAN — Contrato BNPL on-chain
+// ────────────────────────────────────────────────────────────────────────────
+
+// POST /api/soroban/contract
+// Cria um contrato BNPL on-chain (substitui o /api/contract mock)
+app.post('/api/soroban/contract', async (req, res) => {
+  try {
+    const { merchantPublicKey, customerPublicKey, totalAmountUsdc, installmentsCount } = req.body;
+    if (!totalAmountUsdc || !installmentsCount) {
+      return res.status(400).json({ error: 'totalAmountUsdc e installmentsCount são obrigatórios' });
+    }
+
+    const merchant = merchantPublicKey || process.env.STELLAR_MERCHANT_PUBLIC || '';
+    const cliente  = customerPublicKey  || process.env.STELLAR_CUSTOMER_PUBLIC  || '';
+
+    const { contratoId, txHash } = await sorobanService.criarContratoBNPL(
+      merchant,
+      cliente,
+      Math.round(totalAmountUsdc * 10_000_000), // converte para micro-USDC
+      installmentsCount
+    );
+
+    res.json({
+      success: true,
+      contratoId,
+      txHash,
+      explorerUrl: `https://stellar.expert/explorer/testnet/tx/${txHash}`,
+      contractUrl: `https://stellar.expert/explorer/testnet/contract/${process.env.SOROBAN_CONTRACT_ID}`,
+    });
+  } catch (error) {
+    console.error('[Route] /api/soroban/contract error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao criar contrato on-chain' });
+  }
+});
+
+// GET /api/soroban/contract/:contratoId
+// Lê status do contrato diretamente on-chain
+app.get('/api/soroban/contract/:contratoId', async (req, res) => {
+  try {
+    const { contratoId } = req.params;
+    const contrato = await sorobanService.statusContrato(contratoId);
+    res.json({ success: true, contrato });
+  } catch (error) {
+    console.error('[Route] /api/soroban/contract GET error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao consultar contrato' });
+  }
+});
+
+// GET /api/soroban/contracts/cliente/:publicKey
+// Lista contratos de um cliente
+app.get('/api/soroban/contracts/cliente/:publicKey', async (req, res) => {
+  try {
+    const { publicKey } = req.params;
+    const contratos = await sorobanService.listarContratosCliente(publicKey);
+    res.json({ success: true, contratos });
+  } catch (error) {
+    console.error('[Route] /api/soroban/contracts/cliente error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao listar contratos' });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// WEBHOOK ETHERFUSE
+// ────────────────────────────────────────────────────────────────────────────
+
+// POST /webhook/etherfuse
+// Recebe eventos da Etherfuse (payment_received, order_completed)
+app.post('/webhook/etherfuse', verifyEtherfuseWebhook, async (req, res) => {
+  const event = req.body;
+  console.log('[Webhook] Evento recebido:', JSON.stringify(event, null, 2));
+
+  try {
+    const { type, data } = event;
+
+    if (type === 'payment_received' || type === 'order_completed') {
+      const { orderId, txHash, metadata } = data || {};
+
+      // O frontend deve passar contratoId e numeroParcela como metadata ao criar a order
+      const contratoId    = metadata?.contratoId;
+      const numeroParcela = metadata?.numeroParcela;
+
+      if (contratoId && numeroParcela && txHash) {
+        console.log(`[Webhook] Pagando parcela ${numeroParcela} do contrato ${contratoId}`);
+        await sorobanService.pagarParcela(contratoId, Number(numeroParcela), txHash);
+        console.log(`[Webhook] ✅ Parcela ${numeroParcela} paga on-chain`);
+      } else {
+        console.warn('[Webhook] Metadados insuficientes para pagar parcela:', { contratoId, numeroParcela, txHash });
+      }
+    }
+
+    res.json({ received: true });
+  } catch (error) {
+    console.error('[Webhook] Erro ao processar evento:', error);
+    // Retornamos 200 para evitar reenvios em loop; logamos o erro internamente
+    res.json({ received: true, error: error instanceof Error ? error.message : 'Erro interno' });
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Error handling & 404
+// ────────────────────────────────────────────────────────────────────────────
+
 // Error handling
 app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled error:', error);
@@ -395,7 +568,8 @@ app.listen(PORT, () => {
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`⭐ Stellar API: ${HORIZON_URL}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`ℹ️  Using Stellar REST API (no SDK)`);
+  console.log(`🔗 Soroban Contract: ${process.env.SOROBAN_CONTRACT_ID}`);
+  console.log(`💳 Etherfuse: ${process.env.ETHERFUSE_BASE_URL}`);
 });
 
 export default app;
