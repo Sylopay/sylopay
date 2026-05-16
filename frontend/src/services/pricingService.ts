@@ -193,8 +193,20 @@ class PricingService {
     return this.marketComparisons;
   }
 
-  formatCrypto(amount: number): string {
+  formatXLM(amount: number): string {
+    return `${amount.toFixed(7)} XLM`;
+  }
+
+  formatUSDC(amount: number): string {
     return `${amount.toFixed(7)} USDC`;
+  }
+
+  // Mock conversion for demo
+  convertToAsset(brlAmount: number, asset: 'USDC' | 'XLM'): number {
+    if (asset === 'USDC') {
+      return brlAmount / 5.0; // 1 USDC = 5 BRL
+    }
+    return brlAmount / 0.5; // 1 XLM = 0.5 BRL
   }
 
   formatPercent(rate: number): string {
@@ -205,7 +217,9 @@ class PricingService {
     if (currency === 'BRL') {
       return `BRL ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
-    return this.formatCrypto(amount);
+    if (currency === 'USDC') return this.formatUSDC(amount);
+    if (currency === 'XLM') return this.formatXLM(amount);
+    return `${amount.toFixed(7)} ${currency}`;
   }
 }
 

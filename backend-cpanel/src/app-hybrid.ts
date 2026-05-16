@@ -653,6 +653,30 @@ app.get('/api/soroban/contract/:contratoId', async (req, res) => {
   }
 });
 
+// POST /api/soroban/confirm-first-payment
+app.post('/api/soroban/confirm-first-payment', async (req, res) => {
+  try {
+    const { contratoId, txHash } = req.body;
+    
+    // Na demo, o orchestrator (backend) assina a transação de atualização de status
+    // para facilitar o fluxo após o Pix ser confirmado
+    const updateResult = await sorobanService.finalizarPagamentoParcela(
+      contratoId,
+      1, // Sempre a primeira parcela no checkout
+      txHash
+    );
+
+    res.json({
+      success: true,
+      txHash: updateResult.txHash,
+      explorerUrl: updateResult.explorerUrl
+    });
+  } catch (error) {
+    console.error('[Route] /api/soroban/confirm-first-payment error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Error confirming first payment' });
+  }
+});
+
 // POST /api/soroban/prepare-payment
 // Retorna XDR para pagar parcela on-chain via wallet
 app.post('/api/soroban/prepare-payment', async (req, res) => {

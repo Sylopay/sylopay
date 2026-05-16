@@ -266,6 +266,22 @@ export function ProcessingPage() {
     updateStep('payment', { status: 'completed', txHash });
     updateStep('completion', { status: 'processing' });
 
+    try {
+      // Notifica o backend para finalizar o pagamento da 1a parcela on-chain
+      if (sorobanContractId) {
+        await fetch('/api/soroban/confirm-first-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contratoId: sorobanContractId,
+            txHash: txHash || 'pix_confirmed'
+          }),
+        });
+      }
+    } catch (err) {
+      console.warn('[ProcessingPage] Falha ao confirmar on-chain, mas Pix foi pago:', err);
+    }
+
     await delay(1000);
     updateStep('completion', { status: 'completed' });
 

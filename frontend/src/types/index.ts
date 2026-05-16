@@ -92,6 +92,7 @@ export interface AppState {
   contract: Contract | null;
   loading: boolean;
   error: string | null;
+  selectedAsset: 'USDC' | 'XLM';
 }
 
 // Demo Data

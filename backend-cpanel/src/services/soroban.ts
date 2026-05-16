@@ -282,6 +282,62 @@ export async function prepararTransacaoPagarParcela(
 }
 
 /**
+ * Finaliza o pagamento de uma parcela (assinado pelo Orchestrator)
+ * Usado após confirmação do Pix
+ */
+export async function finalizarPagamentoParcela(
+  contratoId: string,
+  numeroParcela: number,
+  txHash: string
+): Promise<{ txHash: string; explorerUrl: string }> {
+  const rpc = getRpc();
+  const admin = getAdminKeypair();
+  const contract = new Contract(getContractId());
+  const account = await rpc.getAccount(admin.publicKey());
+
+  const args = [
+    nativeToScVal(contratoId, { type: 'string' }),
+    nativeToScVal(numeroParcela, { type: 'u32' }),
+    nativeToScVal(txHash, { type: 'string' }),
+  ];
+
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: getNetworkPassphrase(),
+  })
+    .addOperation(contract.call('pagar_parcela', ...args))
+    .setTimeout(60)
+    .build();
+
+  const simResult = await rpc.simulateTransaction(tx);
+  if (SorobanRpc.Api.isSimulationError(simResult)) {
+    throw new Error(`Simulação falhou: ${simResult.error}`);
+  }
+
+  const preparedTx = SorobanRpc.assembleTransaction(tx, simResult).build();
+  preparedTx.sign(admin);
+
+  const sendResult = await rpc.sendTransaction(preparedTx);
+  if (sendResult.status === 'PENDING' || sendResult.status === 'SUCCESS') {
+    // Aguarda confirmação
+    let txResult = await rpc.getTransaction(sendResult.hash);
+    let retry = 0;
+    while (txResult.status === 'NOT_FOUND' && retry < 10) {
+      await new Promise(r => setTimeout(r, 1000));
+      txResult = await rpc.getTransaction(sendResult.hash);
+      retry++;
+    }
+
+    return {
+      txHash: sendResult.hash,
+      explorerUrl: `https://stellar.expert/explorer/testnet/tx/${sendResult.hash}`
+    };
+  }
+
+  throw new Error(`Erro ao enviar transação: ${sendResult.status}`);
+}
+
+/**
  * Consulta o status de um contrato (readonly — não gasta gas)
  */
 export async function statusContrato(contratoId: string): Promise<ContratoStatus> {

@@ -100,8 +100,16 @@ export function QuotationPage() {
   };
 
   const formatAmount = (amount: string) => {
-    const value = parseFloat(amount);
-    return `BRL ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const brlValue = parseFloat(amount);
+    const assetValue = pricingService.convertToAsset(brlValue, state.selectedAsset);
+    return (
+      <span className="flex flex-col">
+        <span className="text-foreground">BRL {brlValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        <span className="text-xs text-muted-foreground font-mono">
+          ≈ {pricingService.formatCurrency(assetValue, state.selectedAsset)}
+        </span>
+      </span>
+    );
   };
 
   const formatDate = (daysFromNow: number) => {
@@ -225,29 +233,31 @@ export function QuotationPage() {
             </Card>
           )}
 
-          {/* Blend Pool Limit Indicator */}
-          <Card className="bg-gradient-to-r from-purple-500/5 to-blue-500/5 border-purple-500/20">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-purple-500/10 rounded-full flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      Blend Pool Credit Limit
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Based on current pool liquidity and risk assessment
-                    </p>
-                  </div>
-                </div>
-                <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 border-purple-500/20">
-                  Max {maxInstallments}x installments
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Asset Selector */}
+          <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">
+            <div>
+              <h4 className="font-semibold text-foreground">Currency Preference</h4>
+              <p className="text-xs text-muted-foreground">Choose your preferred on-chain asset</p>
+            </div>
+            <div className="flex bg-background border rounded-lg p-1">
+              <Button 
+                variant={state.selectedAsset === 'USDC' ? 'default' : 'ghost'} 
+                size="sm" 
+                className="h-8 px-4"
+                onClick={() => actions.setSelectedAsset('USDC')}
+              >
+                USDC
+              </Button>
+              <Button 
+                variant={state.selectedAsset === 'XLM' ? 'default' : 'ghost'} 
+                size="sm" 
+                className="h-8 px-4"
+                onClick={() => actions.setSelectedAsset('XLM')}
+              >
+                XLM
+              </Button>
+            </div>
+          </div>
 
           <div className="grid gap-4">
             {quotationOptions.map((option, index) => (

@@ -9,6 +9,7 @@ type BNPLAction =
   | { type: 'SET_CONTRACT'; payload: Contract }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'SET_SELECTED_ASSET'; payload: 'USDC' | 'XLM' }
   | { type: 'RESET_FLOW' }
   | { type: 'NEXT_STEP' }
   | { type: 'PREV_STEP' };
@@ -21,6 +22,7 @@ const initialState: AppState = {
   contract: null,
   loading: false,
   error: null,
+  selectedAsset: 'USDC',
 };
 
 const stepOrder: AppState['currentStep'][] = ['checkout', 'quotation', 'contract', 'processing', 'dashboard'];
@@ -47,6 +49,9 @@ function bnplReducer(state: AppState, action: BNPLAction): AppState {
     
     case 'SET_ERROR':
       return { ...state, error: action.payload, loading: false };
+    
+    case 'SET_SELECTED_ASSET':
+      return { ...state, selectedAsset: action.payload };
     
     case 'NEXT_STEP':
       const currentIndex = stepOrder.indexOf(state.currentStep);
@@ -80,6 +85,7 @@ interface BNPLContextType {
     setContract: (contract: Contract) => void;
     setLoading: (loading: boolean) => void;
     setError: (error: string | null) => void;
+    setSelectedAsset: (asset: 'USDC' | 'XLM') => void;
     nextStep: () => void;
     prevStep: () => void;
     resetFlow: () => void;
@@ -100,6 +106,7 @@ export function BNPLProvider({ children }: { children: ReactNode }) {
     setContract: (contract: Contract) => dispatch({ type: 'SET_CONTRACT', payload: contract }),
     setLoading: (loading: boolean) => dispatch({ type: 'SET_LOADING', payload: loading }),
     setError: (error: string | null) => dispatch({ type: 'SET_ERROR', payload: error }),
+    setSelectedAsset: (asset: 'USDC' | 'XLM') => dispatch({ type: 'SET_SELECTED_ASSET', payload: asset }),
     nextStep: () => dispatch({ type: 'NEXT_STEP' }),
     prevStep: () => dispatch({ type: 'PREV_STEP' }),
     resetFlow: () => dispatch({ type: 'RESET_FLOW' }),
