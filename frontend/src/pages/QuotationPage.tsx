@@ -48,34 +48,28 @@ export function QuotationPage() {
   useEffect(() => {
     const fetchQuotation = async () => {
       if (!state.product) return;
-
-      // Declarada aqui para ser acessível tanto no try quanto no catch
-      const poolMaxInstallments = Math.floor(Math.random() * 3) + 2; // Random between 2-4
-      setMaxInstallments(poolMaxInstallments);
-
+      
+      setLoading(true);
       try {
-        setLoading(true);
-        
-        // Fetch Blend rates for realistic interest display
-        const blendRates = await pricingService.getBlendRates();
-        setBlendRate(blendRates);
-        
+        // Try to fetch real quotation from API
         const response = await apiService.getQuotation(state.product.price);
-        
-        // Filter options based on Blend Pool's max installments
-        const filteredOptions = response.options.filter(
-          option => option.installmentsCount <= poolMaxInstallments
-        );
-        
-        setQuotationOptions(filteredOptions);
-        setUsingMockData(false);
+        if (response.success && response.data) {
+          setQuotationOptions(response.data.options);
+          setMaxInstallments(response.data.options.length + 1);
+          setUsingMockData(false);
+        } else {
+          // Fallback to mock data if API fails
+          console.warn('API quotation failed, using mock data');
+          setQuotationOptions(generateMockQuotation(state.product.price, 4));
+          setUsingMockData(true);
+        }
+
+        // Also fetch current Blend rates
+        const rates = await pricingService.getBlendRates();
+        setBlendRate(rates);
       } catch (error) {
         console.error('Error fetching quotation:', error);
-        console.log('🔄 API unavailable, using mock data for demo');
-        
-        // Fallback to mock data when API is unavailable
-        const mockOptions = generateMockQuotation(state.product.price, poolMaxInstallments);
-        setQuotationOptions(mockOptions);
+        setQuotationOptions(generateMockQuotation(state.product.price, 4));
         setUsingMockData(true);
       } finally {
         setLoading(false);
@@ -85,23 +79,6 @@ export function QuotationPage() {
     fetchQuotation();
   }, [state.product]);
 
-  useEffect(() => {
-    const calculatePricing = async () => {
-      if (!state.product || !state.selectedPlan) return;
-      
-      try {
-        const pricing = await pricingService.calculateDynamicPricing(
-          parseFloat(state.product.price),
-          state.selectedPlan.installmentsCount
-        );
-        setSelectedPlanPricing(pricing);
-      } catch (error) {
-        console.error('Error calculating pricing:', error);
-      }
-    };
-
-    calculatePricing();
-  }, [state.selectedPlan, state.product]);
 
   const handlePlanSelect = (plan: QuotationOption) => {
     actions.setSelectedPlan(plan);
@@ -134,24 +111,14 @@ export function QuotationPage() {
   const formatDate = (daysFromNow: number) => {
     const date = new Date();
     date.setDate(date.getDate() + daysFromNow);
-    return date.toLocaleDateString('en-US');
+    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center space-y-4">
-              <Logo size="lg" className="mb-4" />
-              <LoadingSpinner size="lg" />
-              <div className="text-center">
-                <h3 className="text-lg font-semibold">Calculating Payment Options</h3>
-                <p className="text-muted-foreground">Finding the best installment plans for you...</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
+        <LoadingSpinner size="lg" />
+        <p className="mt-4 text-muted-foreground animate-pulse">Calculating personalized BNPL options...</p>
       </div>
     );
   }
@@ -159,22 +126,22 @@ export function QuotationPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Modern Header */}
-      <header className="border-b border-border/40 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="border-b border-border/40 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Button
               variant="ghost"
-              onClick={() => window.history.back()}
-              className="flex items-center"
+              onClick={() => navigate('/')}
+              className="flex items-center text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              Back to Store
             </Button>
             <div className="flex items-center space-x-3">
               <Logo size="sm" />
-              <h1 className="text-lg font-semibold">Payment Options</h1>
+              <h1 className="text-lg font-semibold tracking-tight">Payment Options</h1>
             </div>
-            <div className="w-16" />
+            <div className="w-20" /> {/* Spacer for symmetry */}
           </div>
         </div>
       </header>
@@ -189,69 +156,14 @@ export function QuotationPage() {
           <Progress value={40} className="h-2" />
         </div>
 
-        {/* Product Summary */}
-        <Card className="mb-8">
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl flex items-center justify-center">
-                <span className="text-2xl">📱</span>
-              </div>
-              <div className="flex-1">
-                <h2 className="text-lg font-semibold text-foreground">
-                  {state.product?.name}
-                </h2>
-                <p className="text-muted-foreground">
-                  Total amount: <span className="font-semibold text-foreground">{formatAmount(state.product?.price || '0')}</span>
-                </p>
-              </div>
-              <Badge variant="secondary">Selected</Badge>
-            </div>
-          </CardContent>
-        </Card>
+        {usingMockData && (
+          <Badge variant="outline" className="mb-6 bg-amber-500/10 text-amber-600 border-amber-500/20 py-1.5 px-3">
+            <AlertCircle className="w-3.5 h-3.5 mr-2" />
+            System using optimized fallback rates (Testnet Connectivity)
+          </Badge>
+        )}
 
-        {/* Payment Options */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-2xl font-bold text-foreground mb-2">
-                Choose Your Payment Plan
-              </h3>
-              <p className="text-muted-foreground">
-                Select the installment option that works best for you
-              </p>
-            </div>
-            <Button
-              variant={showPricingDetails ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowPricingDetails(!showPricingDetails)}
-              className="flex items-center"
-            >
-              <Calculator className="w-4 h-4 mr-2" />
-              {showPricingDetails ? "Hide" : "Show"} Fee Breakdown
-            </Button>
-          </div>
-
-          {/* API Status Indicator */}
-          {usingMockData && (
-            <Card className="bg-gradient-to-r from-orange-500/5 to-yellow-500/5 border-orange-500/20">
-              <CardContent className="pt-4 pb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-orange-500/10 rounded-full flex items-center justify-center">
-                    <AlertCircle className="w-4 h-4 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-orange-600">
-                      Demo Mode - API Unavailable
-                    </p>
-                    <p className="text-xs text-orange-600/80">
-                      Using mock data for demonstration. Rates are simulated.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
           {/* Asset Selector */}
           <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50">
             <div>
@@ -280,61 +192,42 @@ export function QuotationPage() {
 
           <div className="grid gap-4">
             {quotationOptions.map((option, index) => (
-              <Card
+              <Card 
                 key={index}
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  state.selectedPlan?.installmentsCount === option.installmentsCount
-                    ? 'ring-2 ring-primary border-primary'
-                    : 'hover:border-primary/50'
+                className={`cursor-pointer transition-all duration-200 border-2 ${
+                  state.selectedPlan?.installmentsCount === option.installmentsCount 
+                    ? 'border-primary ring-1 ring-primary/20 bg-primary/5' 
+                    : 'border-border hover:border-primary/40 hover:bg-muted/50'
                 }`}
                 onClick={() => handlePlanSelect(option)}
               >
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className={`
-                        w-6 h-6 rounded-full border-2 flex items-center justify-center
-                        ${state.selectedPlan?.installmentsCount === option.installmentsCount
-                          ? 'border-primary bg-primary'
-                          : 'border-muted'
-                        }
-                      `}>
-                        {state.selectedPlan?.installmentsCount === option.installmentsCount && (
-                          <Check className="w-4 h-4 text-primary-foreground" />
-                        )}
+                <CardContent className="p-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center space-x-4">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        state.selectedPlan?.installmentsCount === option.installmentsCount 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        <Calendar className="w-6 h-6" />
                       </div>
                       <div>
-                        <h4 className="text-xl font-bold text-foreground">
+                        <h4 className="text-xl font-bold">
                           {option.installmentsCount}x installments
                         </h4>
-                        <p className="text-muted-foreground">
+                        <div className="text-muted-foreground">
                           {formatAmount(option.installmentAmount)} per payment
-                        </p>
+                        </div>
                       </div>
                     </div>
-                    {option.installmentsCount === 3 && (
-                      <Badge className="bg-primary text-primary-foreground">
-                        Most Popular
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Payment Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div className="flex items-center space-x-2">
-                      <DollarSign className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        Total: <span className="font-medium text-foreground">{formatAmount(option.totalAmount)}</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        Every {option.frequencyDays} days
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <TrendingDown className="w-4 h-4 text-primary" />
+                    
+                    <div className="flex flex-col items-end">
+                      <div className="text-sm text-muted-foreground line-through">
+                        Total: {formatAmount(state.product?.price || '0')}
+                      </div>
+                      <div className="text-lg font-bold text-primary">
+                        {formatAmount(option.totalAmount)} Total
+                      </div>
                       <span className="text-sm font-medium text-primary">
                         {option.interestRate === '0.0000' 
                           ? blendRate 
@@ -347,7 +240,7 @@ export function QuotationPage() {
                   </div>
 
                   {/* Payment Schedule */}
-                  <Card className="bg-muted/50">
+                  <Card className="bg-muted/50 mt-4">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm">Payment Schedule</CardTitle>
                     </CardHeader>
@@ -383,6 +276,16 @@ export function QuotationPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="hidden">
+                {state.selectedPlan && (
+                  <PricingCalculator
+                    amount={parseFloat(state.product?.price || '0')}
+                    installments={state.selectedPlan.installmentsCount}
+                    onPricingUpdate={(pricing) => setSelectedPlanPricing(pricing)}
+                  />
+                )}
+              </div>
+
               {state.selectedPlan ? (
                 <div className="space-y-4">
                    {/* Simple breakdown inside the page */}
@@ -390,19 +293,27 @@ export function QuotationPage() {
                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-1 duration-300">
                         <div className="p-3 bg-background rounded-lg border">
                           <p className="text-[10px] text-muted-foreground uppercase">Principal</p>
-                          <p className="text-sm font-bold">{pricingService.formatCurrency(selectedPlanPricing.originalAmount, 'BRL')}</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {pricingService.formatCurrency(selectedPlanPricing.originalAmount, 'BRL')}
+                          </p>
                         </div>
                         <div className="p-3 bg-background rounded-lg border">
                           <p className="text-[10px] text-muted-foreground uppercase">Interest ({selectedPlanPricing.consumerInterestRate.toFixed(1)}%)</p>
-                          <p className="text-sm font-bold text-primary">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.consumerInterestAmount, state.selectedAsset), state.selectedAsset)}</p>
+                          <p className="text-sm font-bold text-primary">
+                            {pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.consumerInterestAmount, state.selectedAsset), state.selectedAsset)}
+                          </p>
                         </div>
                         <div className="p-3 bg-background rounded-lg border">
                           <p className="text-[10px] text-muted-foreground uppercase">Total ({state.selectedAsset})</p>
-                          <p className="text-sm font-bold text-green-600">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.totalConsumerPayment, state.selectedAsset), state.selectedAsset)}</p>
+                          <p className="text-sm font-bold text-green-600">
+                            {pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.totalConsumerPayment, state.selectedAsset), state.selectedAsset)}
+                          </p>
                         </div>
                         <div className="p-3 bg-background rounded-lg border">
                           <p className="text-[10px] text-muted-foreground uppercase">Blend Savings</p>
-                          <p className="text-sm font-bold text-blue-600">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.savings.vsTradionalBNPL, state.selectedAsset), state.selectedAsset)}</p>
+                          <p className="text-sm font-bold text-blue-600">
+                            {pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.savings.vsTradionalBNPL, state.selectedAsset), state.selectedAsset)}
+                          </p>
                         </div>
                      </div>
                    ) : (
@@ -411,12 +322,6 @@ export function QuotationPage() {
                         <span className="ml-3 text-muted-foreground">Calculating optimized rates...</span>
                      </div>
                    )}
-                   
-                   <PricingCalculator
-                    amount={parseFloat(state.product?.price || '0')}
-                    installments={state.selectedPlan.installmentsCount}
-                    onPricingUpdate={(pricing) => setSelectedPlanPricing(pricing)}
-                  />
                 </div>
               ) : (
                 <Card className="border-dashed border-2 border-muted-foreground/20">
@@ -438,68 +343,18 @@ export function QuotationPage() {
           </Card>
         )}
 
-        {/* Continue Button */}
-        <div className="mt-8 flex justify-center">
+        {/* Action Button */}
+        <div className="mt-8 flex justify-end">
           <Button
             size="lg"
-            disabled={!state.selectedPlan}
             onClick={handleContinue}
-            className="w-full sm:w-auto px-8 h-12"
+            disabled={!state.selectedPlan}
+            className="w-full md:w-auto h-12 px-8"
           >
-            <span className="mr-2">Continue with Selected Plan</span>
+            <span className="mr-2">Continue to Agreement</span>
             <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
-
-        {/* Benefits Section */}
-        <Card className="mt-12">
-          <CardHeader>
-            <CardTitle className="text-xl">Why Choose SyloPay BNPL?</CardTitle>
-            <CardDescription>
-              Experience the future of payments with blockchain technology
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Zap className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <h5 className="font-semibold text-foreground">Instant Approval</h5>
-                  <p className="text-sm text-muted-foreground">No lengthy credit checks or waiting</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Check className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <h5 className="font-semibold text-foreground">Blockchain Security</h5>
-                  <p className="text-sm text-muted-foreground">Secured by Stellar network technology</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <CreditCard className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <h5 className="font-semibold text-foreground">Complete Transparency</h5>
-                  <p className="text-sm text-muted-foreground">Track everything on Stellar Explorer</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <DollarSign className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <h5 className="font-semibold text-foreground">No Hidden Fees</h5>
-                  <p className="text-sm text-muted-foreground">What you see is what you pay</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
