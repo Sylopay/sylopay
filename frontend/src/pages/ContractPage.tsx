@@ -354,14 +354,21 @@ export function ContractPage() {
                   <div className="border-t pt-3">
                     <div className="flex justify-between font-semibold">
                       <span>Total You'll Pay:</span>
-                      <span className="text-primary">
-                        {pricingBreakdown 
-                          ? `BRL ${pricingBreakdown.totalConsumerPayment.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                            : state.selectedPlan
-                            ? `BRL ${parseFloat(state.selectedPlan.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                            : 'BRL 0.00'
-                        }
-                      </span>
+                      <div className="text-right">
+                        <p className="text-primary">
+                          {pricingBreakdown 
+                            ? `BRL ${pricingBreakdown.totalConsumerPayment.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                              : state.selectedPlan
+                              ? `BRL ${parseFloat(state.selectedPlan.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                              : 'BRL 0.00'
+                          }
+                        </p>
+                        {pricingBreakdown && (
+                          <p className="text-[10px] text-muted-foreground font-mono">
+                            ≈ {pricingService.formatCurrency(pricingService.convertToAsset(pricingBreakdown.totalConsumerPayment, state.selectedAsset), state.selectedAsset)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -391,15 +398,15 @@ export function ContractPage() {
                         <div className="bg-background rounded p-2 space-y-1">
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Processing Fee ({pricingService.formatPercent(pricingBreakdown.merchantFee)})</span>
-                            <span className="font-medium">{pricingService.formatCrypto(pricingBreakdown.merchantFeeAmount)}</span>
+                            <span className="font-medium">{pricingService.formatCurrency(pricingService.convertToAsset(pricingBreakdown.merchantFeeAmount, state.selectedAsset), state.selectedAsset)}</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Transaction Fee</span>
-                            <span className="font-medium">{pricingService.formatCrypto(pricingBreakdown.transactionFee)}</span>
+                            <span className="font-medium">{pricingService.formatCurrency(pricingService.convertToAsset(pricingBreakdown.transactionFee, state.selectedAsset), state.selectedAsset)}</span>
                           </div>
                           <div className="flex justify-between text-xs font-semibold pt-1 border-t">
                             <span>Merchant Total</span>
-                            <span className="text-blue-600">{pricingService.formatCrypto(pricingBreakdown.totalMerchantCost)}</span>
+                            <span className="text-blue-600">{pricingService.formatCurrency(pricingService.convertToAsset(pricingBreakdown.totalMerchantCost, state.selectedAsset), state.selectedAsset)}</span>
                           </div>
                         </div>
                       </div>
@@ -413,15 +420,15 @@ export function ContractPage() {
                         <div className="bg-background rounded p-2 space-y-1">
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Product Price</span>
-                            <span className="font-medium">{pricingService.formatCrypto(pricingBreakdown.originalAmount)}</span>
+                            <span className="font-medium">{pricingService.formatCurrency(pricingService.convertToAsset(pricingBreakdown.originalAmount, state.selectedAsset), state.selectedAsset)}</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Interest ({pricingService.formatPercent(pricingBreakdown.consumerInterestRate)} APR)</span>
-                            <span className="font-medium">{pricingService.formatCrypto(pricingBreakdown.consumerInterestAmount)}</span>
+                            <span className="font-medium">{pricingService.formatCurrency(pricingService.convertToAsset(pricingBreakdown.consumerInterestAmount, state.selectedAsset), state.selectedAsset)}</span>
                           </div>
                           <div className="flex justify-between text-xs font-semibold pt-1 border-t">
                             <span>Your Total</span>
-                            <span className="text-green-600">{pricingService.formatCrypto(pricingBreakdown.totalConsumerPayment)}</span>
+                            <span className="text-green-600">{pricingService.formatCurrency(pricingService.convertToAsset(pricingBreakdown.totalConsumerPayment, state.selectedAsset), state.selectedAsset)}</span>
                           </div>
                         </div>
                       </div>
