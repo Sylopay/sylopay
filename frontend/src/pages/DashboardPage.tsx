@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { DEMO_PRODUCT } from '../types';
 import {
   ExternalLink, Calendar, DollarSign, CheckCircle, Clock, RefreshCw,
-  Home, TrendingUp, Wallet, Activity, Star, BarChart3, Target, Award, Link2
+  Home, TrendingUp, Wallet, Activity, Star, BarChart3, Target, Award, Link2, AlertCircle
 } from 'lucide-react';
 import { useBNPL } from '../hooks/useBNPL';
 import { Button } from '../components/ui/button';
