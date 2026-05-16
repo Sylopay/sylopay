@@ -105,6 +105,7 @@ export function QuotationPage() {
 
   const handlePlanSelect = (plan: QuotationOption) => {
     actions.setSelectedPlan(plan);
+    setShowPricingDetails(true);
     // Commented out automatic redirect to allow users to explore fee breakdown
     // actions.nextStep(); // Go to contract
     // navigate('/contract');
@@ -382,27 +383,35 @@ export function QuotationPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {selectedPlanPricing ? (
+              {state.selectedPlan ? (
                 <div className="space-y-4">
                    {/* Simple breakdown inside the page */}
-                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="p-3 bg-background rounded-lg border">
-                        <p className="text-[10px] text-muted-foreground uppercase">Principal</p>
-                        <p className="text-sm font-bold">{pricingService.formatCurrency(selectedPlanPricing.originalAmount, 'BRL')}</p>
-                      </div>
-                      <div className="p-3 bg-background rounded-lg border">
-                        <p className="text-[10px] text-muted-foreground uppercase">Interest ({selectedPlanPricing.consumerInterestRate.toFixed(1)}%)</p>
-                        <p className="text-sm font-bold text-primary">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.consumerInterestAmount, state.selectedAsset), state.selectedAsset)}</p>
-                      </div>
-                      <div className="p-3 bg-background rounded-lg border">
-                        <p className="text-[10px] text-muted-foreground uppercase">Total ({state.selectedAsset})</p>
-                        <p className="text-sm font-bold text-green-600">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.totalConsumerPayment, state.selectedAsset), state.selectedAsset)}</p>
-                      </div>
-                      <div className="p-3 bg-background rounded-lg border">
-                        <p className="text-[10px] text-muted-foreground uppercase">Blend Savings</p>
-                        <p className="text-sm font-bold text-blue-600">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.savings.vsTradionalBNPL, state.selectedAsset), state.selectedAsset)}</p>
-                      </div>
-                   </div>
+                   {selectedPlanPricing ? (
+                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-1 duration-300">
+                        <div className="p-3 bg-background rounded-lg border">
+                          <p className="text-[10px] text-muted-foreground uppercase">Principal</p>
+                          <p className="text-sm font-bold">{pricingService.formatCurrency(selectedPlanPricing.originalAmount, 'BRL')}</p>
+                        </div>
+                        <div className="p-3 bg-background rounded-lg border">
+                          <p className="text-[10px] text-muted-foreground uppercase">Interest ({selectedPlanPricing.consumerInterestRate.toFixed(1)}%)</p>
+                          <p className="text-sm font-bold text-primary">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.consumerInterestAmount, state.selectedAsset), state.selectedAsset)}</p>
+                        </div>
+                        <div className="p-3 bg-background rounded-lg border">
+                          <p className="text-[10px] text-muted-foreground uppercase">Total ({state.selectedAsset})</p>
+                          <p className="text-sm font-bold text-green-600">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.totalConsumerPayment, state.selectedAsset), state.selectedAsset)}</p>
+                        </div>
+                        <div className="p-3 bg-background rounded-lg border">
+                          <p className="text-[10px] text-muted-foreground uppercase">Blend Savings</p>
+                          <p className="text-sm font-bold text-blue-600">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.savings.vsTradionalBNPL, state.selectedAsset), state.selectedAsset)}</p>
+                        </div>
+                     </div>
+                   ) : (
+                     <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <span className="ml-3 text-muted-foreground">Calculating optimized rates...</span>
+                     </div>
+                   )}
+                   
                    <PricingCalculator
                     amount={parseFloat(state.product?.price || '0')}
                     installments={state.selectedPlan.installmentsCount}
