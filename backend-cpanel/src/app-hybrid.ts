@@ -693,14 +693,14 @@ app.get('/api/soroban/contracts/cliente/:publicKey', async (req, res) => {
 
     res.json({ 
       success: true, 
-      contratos: mergedContratos, 
+      contracts: mergedContratos, 
       source: validOnChain.length > 0 ? 'on-chain' : 'local' 
     });
   } catch (error) {
     console.error('[Route] /api/soroban/contracts/cliente error:', error);
     // Even on error, try to return local contracts
     const localContracts = contracts.filter(c => c.customerPublicKey === req.params.publicKey);
-    res.json({ success: true, contratos: localContracts, source: 'local-fallback', error: error instanceof Error ? error.message : 'Unknown' });
+    res.json({ success: true, contracts: localContracts, source: 'local-fallback', error: error instanceof Error ? error.message : 'Unknown' });
   }
 });
 
