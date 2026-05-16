@@ -245,28 +245,40 @@ export async function prepararTransacaoPagarParcela(
     nativeToScVal('', { type: 'string' }), // Sem hash externo (pagamento direto)
   ];
 
-  const tx = new TransactionBuilder(account, {
+  // 1. Cria uma transação TEMPORÁRIA apenas com a parte Soroban para simulação
+  // Isso é necessário porque o RPC de simulação as vezes falha com múltiplas ops mistas
+  const simTx = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: getNetworkPassphrase(),
   })
-    // Adiciona a transferência REAL de USDC para o merchant
-    .addOperation(Operation.payment({
-      destination: info.merchant,
-      asset: USDC_ASSET,
-      amount: (parcela.valorUsdc / 10000000).toFixed(7), // Converte de stroops (7 casas) para decimal
-    }))
-    // Adiciona a chamada ao contrato para marcar como pago
     .addOperation(contract.call('pagar_parcela', ...args))
     .setTimeout(60)
     .build();
 
-  const simResult = await rpc.simulateTransaction(tx);
+  const simResult = await rpc.simulateTransaction(simTx);
   if (SorobanRpc.Api.isSimulationError(simResult)) {
     throw new Error(`Simulação falhou: ${simResult.error}`);
   }
 
-  const preparedTx = SorobanRpc.assembleTransaction(tx, simResult).build();
-  return { xdr: preparedTx.toXDR() };
+  // 2. Agora montamos a transação FINAL com AMBAS as operações
+  // Usamos os dados da simulação (footprint, etc) para a parte Soroban
+  const finalTxBuilder = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: getNetworkPassphrase(),
+  })
+    // Operação 1: Pagamento clássico de USDC
+    .addOperation(Operation.payment({
+      destination: info.merchant,
+      asset: USDC_ASSET,
+      amount: (parcela.valorUsdc / 10000000).toFixed(7),
+    }))
+    // Operação 2: Chamada ao contrato Soroban
+    .addOperation(contract.call('pagar_parcela', ...args));
+
+  // Prepara a transação final com os dados da simulação da simTx
+  const finalTx = SorobanRpc.assembleTransaction(finalTxBuilder.build(), simResult).build();
+
+  return { xdr: finalTx.toXDR() };
 }
 
 /**
