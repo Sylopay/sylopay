@@ -15,6 +15,8 @@ import {
   xdr,
   Address,
   rpc as SorobanRpc,
+  Asset,
+  Operation,
 } from '@stellar/stellar-sdk';
 
 // Exportando para uso em outros arquivos (ex: app-hybrid.ts)
@@ -226,6 +228,17 @@ export async function prepararTransacaoPagarParcela(
   const contract = new Contract(getContractId());
   const account = await rpc.getAccount(clientePublicKey);
 
+  // 1. Busca detalhes do contrato para saber valor e merchant
+  const info = await statusContrato(contratoId);
+  const parcela = info.parcelas.find(p => p.numero === numeroParcela);
+  if (!parcela) throw new Error('Parcela nao encontrada');
+
+  // Configuração do Asset USDC (Testnet)
+  const USDC_ASSET = new Asset(
+    'USDC',
+    'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
+  );
+
   const args = [
     nativeToScVal(contratoId, { type: 'string' }),
     nativeToScVal(numeroParcela, { type: 'u32' }),
@@ -236,6 +249,13 @@ export async function prepararTransacaoPagarParcela(
     fee: BASE_FEE,
     networkPassphrase: getNetworkPassphrase(),
   })
+    // Adiciona a transferência REAL de USDC para o merchant
+    .addOperation(Operation.payment({
+      destination: info.merchant,
+      asset: USDC_ASSET,
+      amount: (parcela.valorUsdc / 10000000).toFixed(7), // Converte de stroops (7 casas) para decimal
+    }))
+    // Adiciona a chamada ao contrato para marcar como pago
     .addOperation(contract.call('pagar_parcela', ...args))
     .setTimeout(60)
     .build();
