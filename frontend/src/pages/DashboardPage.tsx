@@ -84,9 +84,20 @@ export function DashboardPage() {
 
       try {
         setLoading(true);
-        // Conta Stellar Real
-        const account = await apiService.getStellarAccount(state.customer.stellarPublicKey);
-        setAccountInfo(account);
+        // Conta Stellar Real - Wrap in try/catch to not block contracts if account doesn't exist yet
+        try {
+          const account = await apiService.getStellarAccount(state.customer.stellarPublicKey);
+          setAccountInfo(account);
+        } catch (accountError) {
+          console.warn('[Dashboard] Stellar account not found or not funded yet:', accountError);
+          // Set a minimal account info state so the UI doesn't crash
+          setAccountInfo({
+            publicKey: state.customer.stellarPublicKey,
+            balance: '0',
+            exists: false,
+            explorerUrl: `https://stellar.expert/explorer/testnet/account/${state.customer.stellarPublicKey}`
+          } as any);
+        }
 
         await fetchAllContracts();
       } catch (error) {
@@ -165,6 +176,30 @@ export function DashboardPage() {
     } catch (err) {
       console.error('[Dashboard] Error during wallet payment:', err);
       alert('❌ Payment failed: ' + (err instanceof Error ? err.message : 'Check your wallet connection'));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleFundAccount = async () => {
+    try {
+      setRefreshing(true);
+      // We'll use the same public key but ask the backend to fund it via Friendbot
+      const res = await fetch('/api/stellar/create-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publicKey: state.customer?.stellarPublicKey })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('✅ Account funded successfully! Please wait a few seconds for the network to update.');
+        await handleRefresh();
+      } else {
+        throw new Error(data.error || 'Failed to fund account');
+      }
+    } catch (err) {
+      console.error('[Dashboard] Error funding account:', err);
+      alert('❌ Failed to fund account. Please try again or use a Stellar Faucet.');
     } finally {
       setRefreshing(false);
     }
@@ -657,14 +692,36 @@ export function DashboardPage() {
                           </div>
                         ))}
                         {!accountInfo.balances?.find(b => b.asset_code === 'USDC') && (
-                          <div className="flex justify-between items-center bg-muted/50 rounded-lg px-3 py-2">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                                <span className="text-xs font-bold text-white">$</span>
+                          <div className="flex flex-col gap-3">
+                            <div className="flex justify-between items-center bg-muted/50 rounded-lg px-3 py-2">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                                  <span className="text-xs font-bold text-white">$</span>
+                                </div>
+                                <span className="text-sm font-medium">USDC</span>
                               </div>
-                              <span className="text-sm font-medium">USDC</span>
+                              <span className="text-sm text-muted-foreground">No trustline</span>
                             </div>
-                            <span className="text-sm text-muted-foreground">No trustline</span>
+                            
+                            {!accountInfo.exists && (
+                              <div className="bg-warning-50 border border-warning-200 rounded-lg p-3">
+                                <div className="flex items-center gap-2 text-warning-700 text-xs font-semibold mb-2">
+                                  <AlertCircle className="w-4 h-4" />
+                                  Account not active
+                                </div>
+                                <p className="text-[10px] text-warning-600 mb-3">
+                                  Your account needs to be funded with XLM to perform on-chain payments.
+                                </p>
+                                <Button 
+                                  size="sm" 
+                                  className="w-full h-8 text-xs bg-warning-600 hover:bg-warning-700"
+                                  onClick={handleFundAccount}
+                                  disabled={refreshing}
+                                >
+                                  {refreshing ? 'Funding...' : 'Fund with Friendbot'}
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

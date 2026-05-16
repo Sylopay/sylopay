@@ -127,41 +127,47 @@ app.get('/api/stellar/health', async (req, res) => {
 // Create Stellar account (using Friendbot)
 app.post('/api/stellar/create-account', async (req, res) => {
   try {
-    // Generate keypair (mock for now - real implementation would need crypto)
-    const keys = generateMockKeys();
+    const { publicKey: existingPublicKey } = req.body;
+    
+    // Generate or use existing keypair
+    const keys = existingPublicKey 
+      ? { publicKey: existingPublicKey, secretKey: '[PROVIDED]' }
+      : generateMockKeys();
+
+    const targetPublicKey = keys.publicKey;
 
     // Try to fund account using Friendbot
     try {
       const friendbotResponse = await fetch(
-        `https://friendbot.stellar.org?addr=${encodeURIComponent(keys.publicKey)}`
+        `https://friendbot.stellar.org?addr=${encodeURIComponent(targetPublicKey)}`
       );
 
       if (friendbotResponse.ok) {
         res.json({
           success: true,
           account: {
-            publicKey: keys.publicKey,
+            publicKey: targetPublicKey,
             secretKey: process.env.NODE_ENV === 'development' ? keys.secretKey : '[HIDDEN]'
           },
           funded: true,
-          explorerUrl: `https://stellar.expert/explorer/testnet/account/${keys.publicKey}`
+          explorerUrl: `https://stellar.expert/explorer/testnet/account/${targetPublicKey}`
         });
         return;
       }
     } catch (e) {
-      // Friendbot failed, continue with mock
+      console.warn('[Stellar] Friendbot failed:', e);
     }
 
-    // Return mock account if Friendbot fails
+    // Return current state if Friendbot fails
     res.json({
-      success: true,
+      success: !!existingPublicKey, // If it's existing, we just return current state
       account: {
-        publicKey: keys.publicKey,
+        publicKey: targetPublicKey,
         secretKey: process.env.NODE_ENV === 'development' ? keys.secretKey : '[HIDDEN]'
       },
       funded: false,
-      explorerUrl: `https://stellar.expert/explorer/testnet/account/${keys.publicKey}`,
-      note: 'Mock account generated (Friendbot unavailable)'
+      explorerUrl: `https://stellar.expert/explorer/testnet/account/${targetPublicKey}`,
+      note: existingPublicKey ? 'Funding failed (Friendbot unavailable)' : 'Mock account generated (Friendbot unavailable)'
     });
   } catch (error) {
     res.status(500).json({
@@ -200,9 +206,11 @@ app.get('/api/stellar/account/:publicKey', async (req, res) => {
   }
 
   // Não retornamos mais dados mockados se a conta não existir
-  res.status(404).json({
+  // Return 200 even if not exists, so frontend doesn't throw AxiosError
+  res.json({
     publicKey,
     exists: false,
+    balance: '0',
     error: 'Account not found on Stellar Testnet network'
   });
 });
