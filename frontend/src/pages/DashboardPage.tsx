@@ -648,9 +648,10 @@ export function DashboardPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => window.location.reload()}
+                    onClick={handleRefresh}
+                    disabled={refreshing}
                   >
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                   </Button>
                 </div>
               </CardHeader>
