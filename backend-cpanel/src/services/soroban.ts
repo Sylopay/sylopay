@@ -318,7 +318,7 @@ export async function finalizarPagamentoParcela(
   preparedTx.sign(admin);
 
   const sendResult = await rpc.sendTransaction(preparedTx);
-  if (sendResult.status === 'PENDING' || sendResult.status === 'SUCCESS') {
+  if ((sendResult.status as any) === 'PENDING' || (sendResult.status as any) === 'SUCCESS') {
     // Aguarda confirmação
     let txResult = await rpc.getTransaction(sendResult.hash);
     let retry = 0;
