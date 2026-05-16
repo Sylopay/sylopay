@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { ExternalLink, Calendar, DollarSign, CheckCircle, Clock, RefreshCw, Home, TrendingUp, Wallet, Activity, Star, BarChart3, Target, Award } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { ExternalLink, Calendar, DollarSign, CheckCircle, Clock, RefreshCw,
+  Home, TrendingUp, Wallet, Activity, Star, BarChart3, Target, Award, Link2 } from 'lucide-react';
 import { useBNPL } from '../hooks/useBNPL';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -18,21 +19,78 @@ interface InstallmentSchedule {
   dueDate: string;
   status: 'pending' | 'due' | 'paid' | 'overdue';
   paidDate?: string;
+  txHash?: string;        // ← on-chain
+  explorerUrl?: string;   // ← link Stellar Explorer
+}
+
+// Dados reais vindos do contrato Soroban
+interface SorobanContrato {
+  id: string;
+  status: string;
+  valorTotal: number;
+  numParcelas: number;
+  parcelas: Array<{
+    numero: number;
+    valorUsdc: number;
+    vencimento: number;
+    status: string;
+    txHash: string;
+    pagoEm: number;
+  }>;
 }
 
 export function DashboardPage() {
   const { state, actions } = useBNPL();
-  const [accountInfo, setAccountInfo] = useState<StellarAccount | null>(null);
-  const [installments, setInstallments] = useState<InstallmentSchedule[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [accountInfo, setAccountInfo]         = useState<StellarAccount | null>(null);
+  const [installments, setInstallments]       = useState<InstallmentSchedule[]>([]);
+  const [loading, setLoading]                 = useState(true);
   const [pricingBreakdown, setPricingBreakdown] = useState<PricingBreakdown | null>(null);
   const [showMerchantAnalytics, setShowMerchantAnalytics] = useState(false);
-  const navigate = useNavigate(); 
+  const [sorobanContrato, setSorobanContrato] = useState<SorobanContrato | null>(null);
+  const [refreshing, setRefreshing]           = useState(false);
+  const navigate = useNavigate();
 
-  const handleNewPurchase = () => {
-    navigate('/');   // Navega para a página inicial
-  };
+  const handleNewPurchase = () => navigate('/');
 
+  // ── Busca dados on-chain do contrato Soroban ────────────────────────────────
+  const fetchSorobanData = useCallback(async (contratoId: string) => {
+    try {
+      const res = await fetch(`/api/soroban/contract/${encodeURIComponent(contratoId)}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!json.success) return;
+
+      const contrato: SorobanContrato = json.contrato;
+      setSorobanContrato(contrato);
+
+      // Mescla os dados on-chain com o schedule do plano
+      setInstallments(prev =>
+        prev.map(inst => {
+          const parcela = contrato.parcelas.find(p => p.numero === inst.number);
+          if (!parcela) return inst;
+          return {
+            ...inst,
+            status: parcela.status === 'Paga'
+              ? 'paid'
+              : parcela.status === 'Vencida'
+              ? 'overdue'
+              : inst.status,
+            txHash: parcela.txHash || undefined,
+            explorerUrl: parcela.txHash
+              ? `https://stellar.expert/explorer/testnet/tx/${parcela.txHash}`
+              : undefined,
+            paidDate: parcela.pagoEm
+              ? new Date(parcela.pagoEm * 1000).toISOString().split('T')[0]
+              : undefined,
+          };
+        })
+      );
+    } catch (err) {
+      console.warn('[Dashboard] Erro ao buscar Soroban:', err);
+    }
+  }, []);
+
+  // ── Carregamento inicial ────────────────────────────────────────────────────
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!state.customer || !state.selectedPlan) return;
@@ -40,14 +98,18 @@ export function DashboardPage() {
       try {
         setLoading(true);
 
-        // Fetch Stellar account info
+        // Conta Stellar
         const account = await apiService.getStellarAccount(state.customer.stellarPublicKey);
         setAccountInfo(account);
 
-        // Generate installment schedule
+        // Gera schedule local
         const schedule = generateInstallmentSchedule();
         setInstallments(schedule);
 
+        // Busca dados reais do contrato on-chain
+        if (state.contract?.id) {
+          await fetchSorobanData(state.contract.id);
+        }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         actions.setError('Error loading dashboard data');
@@ -58,27 +120,29 @@ export function DashboardPage() {
 
     const generateInstallmentSchedule = (): InstallmentSchedule[] => {
       if (!state.selectedPlan) return [];
-
-      const installments: InstallmentSchedule[] = [];
       const today = new Date();
-
-      for (let i = 0; i < state.selectedPlan.installmentsCount; i++) {
+      return Array.from({ length: state.selectedPlan.installmentsCount }, (_, i) => {
         const dueDate = new Date();
-        dueDate.setDate(today.getDate() + (i + 1) * state.selectedPlan.frequencyDays);
-
-        installments.push({
+        dueDate.setDate(today.getDate() + (i + 1) * state.selectedPlan!.frequencyDays);
+        return {
           number: i + 1,
-          amount: state.selectedPlan.installmentAmount,
+          amount: state.selectedPlan!.installmentAmount,
           dueDate: dueDate.toISOString().split('T')[0],
-          status: i === 0 ? 'due' : 'pending'
-        });
-      }
-
-      return installments;
+          status: i === 0 ? 'due' : 'pending',
+        };
+      });
     };
 
     fetchDashboardData();
   }, [state.customer, state.selectedPlan]);
+
+  // ── Refresh manual on-chain ─────────────────────────────────────────────────
+  const handleRefresh = async () => {
+    if (!state.contract?.id || refreshing) return;
+    setRefreshing(true);
+    await fetchSorobanData(state.contract.id);
+    setRefreshing(false);
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
@@ -154,6 +218,17 @@ export function DashboardPage() {
                 <BarChart3 className="w-4 h-4 mr-2" />
                 {showMerchantAnalytics ? "Customer View" : "Merchant Analytics"}
               </Button>
+              {state.contract?.id && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  title="Atualizar dados on-chain"
+                >
+                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                </Button>
+              )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -164,6 +239,7 @@ export function DashboardPage() {
                   New Purchase
                 </Button>
             </div>
+
           </div>
         </div>
       </header>
@@ -344,18 +420,28 @@ export function DashboardPage() {
             {/* Installment Schedule */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Calendar className="w-5 h-5 mr-2" />
-                  Payment Schedule
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center">
+                    <Calendar className="w-5 h-5 mr-2" />
+                    Calendário de Pagamentos
+                  </CardTitle>
+                  {sorobanContrato && (
+                    <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-700 border-purple-500/20">
+                      <Link2 className="w-3 h-3 mr-1" />
+                      On-chain
+                    </Badge>
+                  )}
+                </div>
                 <CardDescription>
-                  Track your upcoming and completed payments
+                  {sorobanContrato
+                    ? 'Dados lidos diretamente do contrato Soroban on-chain'
+                    : 'Acompanhe seus pagamentos pendentes e concluídos'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {installments.map((installment) => (
-                    <div 
+                    <div
                       key={installment.number}
                       className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                     >
@@ -363,11 +449,23 @@ export function DashboardPage() {
                         {getStatusIcon(installment.status)}
                         <div>
                           <div className="font-medium text-foreground">
-                            Payment #{installment.number}
+                            Parcela #{installment.number}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            Due: {formatDate(installment.dueDate)}
+                            Vencimento: {formatDate(installment.dueDate)}
                           </div>
+                          {/* Link on-chain quando parcela foi paga */}
+                          {installment.txHash && (
+                            <a
+                              href={installment.explorerUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 mt-1 text-xs text-primary hover:underline"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              Ver tx on-chain
+                            </a>
+                          )}
                         </div>
                       </div>
 
@@ -376,15 +474,15 @@ export function DashboardPage() {
                           <div className="font-semibold text-foreground">
                             {formatAmount(installment.amount)}
                           </div>
-                          <Badge 
-                            variant={installment.status === 'paid' ? 'default' : 
+                          <Badge
+                            variant={installment.status === 'paid' ? 'default' :
                                     installment.status === 'due' ? 'destructive' : 'secondary'}
                             className="text-xs"
                           >
                             {getStatusText(installment.status)}
                           </Badge>
                         </div>
-                        
+
                         {installment.status === 'due' && (
                           <Button size="sm">
                             Pay Now

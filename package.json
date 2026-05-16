@@ -6,13 +6,18 @@
   "scripts": {
     "setup": "npm run setup:stellar && npm run setup:dependencies",
     "setup:stellar": "node scripts/setup-stellar.js",
-    "setup:dependencies": "cd backend && npm install && cd ../frontend && npm install",
+    "setup:dependencies": "cd backend-cpanel && npm install && cd ../frontend && npm install",
     "dev": "docker-compose up -d && npm run dev:backend & npm run dev:frontend",
-    "dev:backend": "cd backend && npm run dev",
+    "dev:backend": "cd backend-cpanel && npm run dev:hybrid",
     "dev:frontend": "cd frontend && npm run dev",
-    "build": "cd backend && npm run build && cd ../frontend && npm run build",
-    "test": "cd backend && npm test && cd ../frontend && npm test",
-    "clean": "docker-compose down -v && rm -rf backend/node_modules frontend/node_modules"
+    "build": "cd backend-cpanel && npm run build && cd ../frontend && npm run build",
+    "test": "cd backend-cpanel && npm test && cd ../frontend && npm test",
+    "clean": "docker-compose down -v && rm -rf backend-cpanel/node_modules frontend/node_modules",
+    "webhook:register": "node scripts/register-webhook.js",
+    "webhook:test": "node scripts/test-webhook.js",
+    "ngrok": "/tmp/ngrok http 3000",
+    "contracts:build": "cd contracts/sylopay_bnpl && stellar contract build",
+    "contracts:test": "cd contracts/sylopay_bnpl && cargo test"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^11.3.0"

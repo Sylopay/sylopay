@@ -1,6 +1,14 @@
+/**
+ * ProcessingPage.tsx
+ * Fase 3: Integração real com Etherfuse (on-ramp Pix) + Soroban (contrato on-chain)
+ */
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, ExternalLink, AlertCircle, Clock, Zap, Shield, CreditCard, ArrowRight, TrendingDown } from 'lucide-react';
+import {
+  CheckCircle, ExternalLink, AlertCircle, Clock, Zap, Shield,
+  CreditCard, ArrowRight, Wallet, Link2
+} from 'lucide-react';
 import { useBNPL } from '../hooks/useBNPL';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -8,304 +16,362 @@ import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Logo from '../components/Logo';
-import apiService from '../services/api';
+import { PixPayment } from '../components/PixPayment';
 import { DEMO_MERCHANT } from '../types';
-import pricingService, { PricingBreakdown } from '../services/pricingService';
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface ProcessingStep {
   id: string;
   title: string;
   description: string;
   status: 'pending' | 'processing' | 'completed' | 'error';
+  txHash?: string;
+  explorerUrl?: string;
 }
+
+interface PixData {
+  pixKey: string;
+  amountBRL: number;
+  expiresAt: string;
+  orderId: string;
+  quoteId: string;
+}
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 export function ProcessingPage() {
   const { state, actions } = useBNPL();
   const navigate = useNavigate();
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [processingStarted, setProcessingStarted] = useState(false);
-  const [pricingBreakdown, setPricingBreakdown] = useState<PricingBreakdown | null>(null);
+
   const [steps, setSteps] = useState<ProcessingStep[]>([
     {
       id: 'validation',
-      title: 'Validating Data',
-      description: 'Verifying customer information and selected plan',
-      status: 'processing'
+      title: 'Validando dados',
+      description: 'Verificando informações do cliente e plano selecionado',
+      status: 'processing',
     },
     {
-      id: 'stellar',
-      title: 'Connecting to Stellar Network',
-      description: 'Establishing blockchain connection',
-      status: 'pending'
+      id: 'soroban',
+      title: 'Criando contrato on-chain',
+      description: 'Registrando contrato BNPL na Stellar (Soroban)',
+      status: 'pending',
     },
     {
-      id: 'contract',
-      title: 'Creating Smart Contract',
-      description: 'Deploying smart contract on blockchain',
-      status: 'pending'
+      id: 'pix',
+      title: 'Gerando chave Pix',
+      description: 'Preparando order de pagamento via Etherfuse',
+      status: 'pending',
     },
     {
       id: 'payment',
-      title: 'Processing Payment',
-      description: 'Transferring funds to merchant',
-      status: 'pending'
+      title: 'Aguardando pagamento',
+      description: 'Confirmação Pix → USDC emitido na wallet Stellar',
+      status: 'pending',
     },
     {
       id: 'completion',
-      title: 'Finalizing',
-      description: 'Setting up installment schedule',
-      status: 'pending'
-    }
+      title: 'Finalizando',
+      description: 'Parcela registrada on-chain — pronto!',
+      status: 'pending',
+    },
   ]);
 
-  useEffect(() => {
-    const calculatePricing = async () => {
-      if (!state.product || !state.selectedPlan) return;
-      
-      try {
-        const pricing = await pricingService.calculateDynamicPricing(
-          parseFloat(state.product.price),
-          state.selectedPlan.installmentsCount
-        );
-        setPricingBreakdown(pricing);
-      } catch (error) {
-        console.error('Error calculating pricing:', error);
-      }
-    };
+  const [pixData, setPixData]           = useState<PixData | null>(null);
+  const [showPix, setShowPix]           = useState(false);
+  const [started, setStarted]           = useState(false);
+  const [sorobanContractId, setSorobanContractId] = useState<string | undefined>();
+  const [sorobanTxHash, setSorobanTxHash]         = useState<string | undefined>();
 
-    calculatePricing();
-  }, [state.product, state.selectedPlan]);
+  // ─── Utilitários ─────────────────────────────────────────────────────────────
+
+  const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+  const updateStep = (id: string, patch: Partial<ProcessingStep>) => {
+    setSteps(prev =>
+      prev.map(s => (s.id === id ? { ...s, ...patch } : s))
+    );
+  };
+
+  // ─── Fluxo principal ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-    const processContract = async () => {
-      if (processingStarted) return; // Prevent multiple executions
-      
+    if (started) return;
+
+    const run = async () => {
+      setStarted(true);
+
       if (!state.customer || !state.selectedPlan || !state.product) {
-        actions.setError('Incomplete data to process contract');
+        actions.setError('Dados incompletos para processar o contrato');
         return;
       }
 
-      setProcessingStarted(true);
-
       try {
-        // Step 1: Validation
-        await updateStep(0, 'completed');
-        await apiService.delay(1000);
+        // ── Step 1: Validação ──────────────────────────────────────────────────
+        await delay(800);
+        updateStep('validation', { status: 'completed' });
 
-        // Step 2: Stellar Connection
-        await updateStep(1, 'processing');
-        const stellarHealth = await apiService.getStellarHealth();
-        if (!stellarHealth.connected) {
-          throw new Error('Failed to connect to Stellar network');
-        }
-        await updateStep(1, 'completed');
-        await apiService.delay(1000);
+        // ── Step 2: Criar contrato Soroban on-chain ────────────────────────────
+        updateStep('soroban', { status: 'processing' });
+        await delay(500);
 
-        // Step 3: Contract Creation
-        await updateStep(2, 'processing');
-        const contractData = {
-          merchantPublicKey: DEMO_MERCHANT.publicKey,
-          customerPublicKey: state.customer.stellarPublicKey,
-          totalAmount: state.selectedPlan.totalAmount,
-          installmentsCount: state.selectedPlan.installmentsCount,
-          customer: state.customer,
-          selectedPlan: state.selectedPlan,
-          termsAccepted: true
-        };
+        const totalUsdc = parseFloat(state.selectedPlan.totalAmount); // valor em XLM/USDC demo
+        const sorobanRes = await fetch('/api/soroban/contract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            merchantPublicKey: DEMO_MERCHANT.publicKey,
+            customerPublicKey: state.customer.stellarPublicKey,
+            totalAmountUsdc: totalUsdc,
+            installmentsCount: state.selectedPlan.installmentsCount,
+          }),
+        });
 
-        const contractResponse = await apiService.createContract(contractData);
-        if (!contractResponse.success) {
-          throw new Error('Failed to create contract');
+        if (!sorobanRes.ok) {
+          throw new Error(`Falha ao criar contrato on-chain: ${sorobanRes.status}`);
         }
 
-        actions.setContract(contractResponse.contract);
-        await updateStep(2, 'completed');
-        await apiService.delay(1000);
+        const sorobanData = await sorobanRes.json();
+        setSorobanContractId(sorobanData.contratoId);
+        setSorobanTxHash(sorobanData.txHash);
 
-        // Step 4: Payment Processing (mock)
-        await updateStep(3, 'processing');
-        await apiService.delay(2000); // Simulate payment processing
-        await updateStep(3, 'completed');
-        await apiService.delay(1000);
+        updateStep('soroban', {
+          status: 'completed',
+          txHash: sorobanData.txHash,
+          explorerUrl: sorobanData.explorerUrl,
+        });
 
-        // Step 5: Completion
-        await updateStep(4, 'processing');
-        await apiService.delay(1000);
-        await updateStep(4, 'completed');
+        // Atualiza o contrato no estado global com dados on-chain
+        actions.setContract({
+          id: sorobanData.contratoId,
+          stellarTxHash: sorobanData.txHash,
+          explorerUrl: sorobanData.explorerUrl,
+          status: 'active',
+        });
 
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          actions.nextStep();
-          navigate('/dashboard');
-        }, 2000);
+        await delay(600);
+
+        // ── Step 3: Gerar quote + order Pix ───────────────────────────────────
+        updateStep('pix', { status: 'processing' });
+
+        const installmentAmountBRL = parseFloat(state.selectedPlan.installmentAmount);
+
+        const quoteRes = await fetch('/api/etherfuse/quote-onramp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount_brl: installmentAmountBRL,
+            wallet_address: state.customer.stellarPublicKey,
+          }),
+        });
+
+        if (!quoteRes.ok) {
+          throw new Error(`Falha ao criar quote Etherfuse: ${quoteRes.status}`);
+        }
+
+        const quoteData = await quoteRes.json();
+        const quoteId = quoteData.quote?.id;
+
+        const orderRes = await fetch('/api/etherfuse/order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quoteId }),
+        });
+
+        if (!orderRes.ok) {
+          throw new Error(`Falha ao criar order Etherfuse: ${orderRes.status}`);
+        }
+
+        const orderData = await orderRes.json();
+        const order = orderData.order;
+        const pix = order?.paymentInstructions;
+
+        // Monta dados Pix — usa fallback quando sandbox não retorna chave real
+        const pixKey = pix?.pixKey || quoteId || `pix_${order?.id || Date.now()}`;
+        const expiresAt = pix?.expiresAt
+          || new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 min fallback
+
+        setPixData({
+          pixKey,
+          amountBRL: pix?.amount || installmentAmountBRL,
+          expiresAt,
+          orderId: order?.id || quoteId,
+          quoteId,
+        });
+
+        updateStep('pix', { status: 'completed' });
+        updateStep('payment', { status: 'processing' });
+
+        // Exibe o componente Pix
+        setShowPix(true);
 
       } catch (error) {
-        console.error('Contract processing error:', error);
-        setSteps(prev => prev.map((step, index) => 
-          index === currentStepIndex 
-            ? { ...step, status: 'error' }
-            : step
-        ));
-        actions.setError(error instanceof Error ? error.message : 'Processing error');
+        console.error('[ProcessingPage] Error:', error);
+        actions.setError(
+          error instanceof Error ? error.message : 'Erro ao processar pagamento'
+        );
+        setSteps(prev =>
+          prev.map(s => (s.status === 'processing' ? { ...s, status: 'error' } : s))
+        );
       }
     };
 
-    const updateStep = async (stepIndex: number, status: ProcessingStep['status']) => {
-      setCurrentStepIndex(stepIndex);
-      setSteps(prev => prev.map((step, index) => 
-        index === stepIndex 
-          ? { ...step, status }
-          : index < stepIndex 
-          ? { ...step, status: 'completed' }
-          : step
-      ));
-    };
-
-    processContract();
+    run();
   }, []);
+
+  // ─── Callback quando Pix confirmado ──────────────────────────────────────────
+
+  const handlePixConfirmed = async (txHash?: string) => {
+    updateStep('payment', { status: 'completed', txHash });
+    updateStep('completion', { status: 'processing' });
+
+    await delay(1000);
+    updateStep('completion', { status: 'completed' });
+
+    // Aguarda 2s para o usuário ver o sucesso e redireciona
+    setTimeout(() => {
+      actions.nextStep();
+      navigate('/dashboard');
+    }, 2000);
+  };
+
+  // ─── Helpers de UI ────────────────────────────────────────────────────────────
 
   const getStepIcon = (step: ProcessingStep) => {
     switch (step.status) {
-      case 'completed':
-        return <CheckCircle className="w-6 h-6 text-success-600" />;
-      case 'processing':
-        return <LoadingSpinner size="sm" />;
-      case 'error':
-        return <AlertCircle className="w-6 h-6 text-error-600" />;
-      default:
-        return <div className="w-6 h-6 border-2 border-gray-300 rounded-full" />;
+      case 'completed': return <CheckCircle className="w-6 h-6 text-green-600" />;
+      case 'processing': return <LoadingSpinner size="sm" />;
+      case 'error':     return <AlertCircle className="w-6 h-6 text-destructive" />;
+      default:          return <div className="w-6 h-6 border-2 border-muted rounded-full" />;
     }
   };
 
-  const allCompleted = steps.every(step => step.status === 'completed');
-  const hasError = steps.some(step => step.status === 'error');
+  const completedCount = steps.filter(s => s.status === 'completed').length;
+  const progressPct    = (completedCount / steps.length) * 100;
+  const allCompleted   = steps.every(s => s.status === 'completed');
+  const hasError       = steps.some(s => s.status === 'error');
+
+  // ─── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Modern Header */}
+      {/* Header */}
       <header className="border-b border-border/40 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center h-16">
             <div className="flex items-center space-x-3">
               <Logo size="md" className="animate-pulse" />
-              <h1 className="text-lg font-semibold">Processing BNPL Contract</h1>
+              <h1 className="text-lg font-semibold">Processando Pagamento</h1>
             </div>
           </div>
         </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Progress Indicator */}
+        {/* Progress bar */}
         <div className="mb-8">
           <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
-            <span>Step 4 of 5</span>
-            <span>80% Complete</span>
+            <span>Etapa 4 de 5</span>
+            <span>{progressPct.toFixed(0)}% Concluído</span>
           </div>
-          <Progress value={80} className="h-2" />
+          <Progress value={progressPct} className="h-2" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Processing Steps */}
-          <div className="lg:col-span-2">
+          {/* Etapas + Pix */}
+          <div className="lg:col-span-2 space-y-6">
+
+            {/* Steps */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Zap className="w-5 h-5 mr-2 text-primary" />
-                  Contract Processing
+                  Processamento do Contrato BNPL
                 </CardTitle>
                 <CardDescription>
-                  Creating your BNPL contract on the Stellar blockchain
+                  Contrato criado on-chain via Soroban · Pagamento via Pix (Etherfuse)
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {steps.map((step, index) => (
+              <CardContent className="space-y-4">
+                {steps.map((step) => (
                   <div
                     key={step.id}
                     className={`
                       flex items-start space-x-4 p-4 rounded-lg transition-all
                       ${step.status === 'processing' ? 'bg-primary/5 border border-primary/20' : ''}
-                      ${step.status === 'error' ? 'bg-destructive/5 border border-destructive/20' : ''}
-                      ${step.status === 'completed' ? 'bg-green-500/5 border border-green-500/20' : ''}
+                      ${step.status === 'error'      ? 'bg-destructive/5 border border-destructive/20' : ''}
+                      ${step.status === 'completed'  ? 'bg-green-500/5 border border-green-500/20' : ''}
+                      ${step.status === 'pending'    ? 'opacity-50' : ''}
                     `}
                   >
-                    <div className="flex-shrink-0 mt-1">
-                      {getStepIcon(step)}
-                    </div>
+                    <div className="flex-shrink-0 mt-1">{getStepIcon(step)}</div>
                     <div className="flex-1 min-w-0">
-                      <h3 className={`
-                        text-base font-semibold
-                        ${step.status === 'completed' ? 'text-green-600' : ''}
-                        ${step.status === 'processing' ? 'text-primary' : ''}
-                        ${step.status === 'error' ? 'text-destructive' : ''}
-                        ${step.status === 'pending' ? 'text-muted-foreground' : ''}
-                      `}>
+                      <h3 className={`text-base font-semibold ${
+                        step.status === 'completed'  ? 'text-green-600' :
+                        step.status === 'processing' ? 'text-primary' :
+                        step.status === 'error'      ? 'text-destructive' :
+                        'text-muted-foreground'
+                      }`}>
                         {step.title}
                       </h3>
-                      <p className={`
-                        text-sm mt-1
-                        ${step.status === 'completed' ? 'text-green-600/80' : ''}
-                        ${step.status === 'processing' ? 'text-primary/80' : ''}
-                        ${step.status === 'error' ? 'text-destructive/80' : ''}
-                        ${step.status === 'pending' ? 'text-muted-foreground' : ''}
-                      `}>
-                        {step.description}
-                      </p>
-                    </div>
-                    {step.status === 'completed' && index === 2 && state.contract && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        asChild
-                      >
+                      <p className="text-sm mt-1 text-muted-foreground">{step.description}</p>
+
+                      {/* Link para explorer quando há txHash */}
+                      {step.status === 'completed' && step.txHash && (
                         <a
-                          href={state.contract.explorerUrl}
+                          href={
+                            step.explorerUrl ||
+                            `https://stellar.expert/explorer/testnet/tx/${step.txHash}`
+                          }
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center"
+                          className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
                         >
-                          <ExternalLink className="w-4 h-4 mr-2" />
-                          View on Explorer
+                          <ExternalLink className="w-3 h-3" />
+                          Ver no Stellar Explorer
                         </a>
-                      </Button>
-                    )}
+                      )}
+                    </div>
                   </div>
                 ))}
               </CardContent>
             </Card>
 
-            {/* Success Message */}
+            {/* Componente Pix */}
+            {showPix && pixData && !allCompleted && !hasError && (
+              <PixPayment
+                pixKey={pixData.pixKey}
+                amountBRL={pixData.amountBRL}
+                expiresAt={pixData.expiresAt}
+                orderId={pixData.orderId}
+                onConfirmed={handlePixConfirmed}
+                onExpired={() => actions.setError('Chave Pix expirou. Tente novamente.')}
+              />
+            )}
+
+            {/* Sucesso */}
             {allCompleted && (
-              <Card className="mt-6 border-green-500/20 bg-green-500/5">
+              <Card className="border-green-500/20 bg-green-500/5">
                 <CardContent className="pt-6">
-                  <div className="flex">
+                  <div className="flex items-start gap-3">
                     <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
-                    <div className="ml-3">
-                      <h3 className="text-lg font-semibold text-green-600">
-                        BNPL Contract Created Successfully!
+                    <div>
+                      <h3 className="text-lg font-semibold text-green-700">
+                        Contrato BNPL criado com sucesso!
                       </h3>
-                      <p className="text-green-600/80 mt-1">
-                        Your contract has been created on the Stellar blockchain. You'll be redirected to the dashboard
-                        where you can track your installments.
+                      <p className="text-green-600/80 text-sm mt-1">
+                        Seu contrato está registrado na Stellar. Redirecionando para o dashboard...
                       </p>
-                      {state.contract && (
-                        <div className="mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            asChild
-                            className="border-green-500/30 text-green-600 hover:bg-green-500/10"
-                          >
-                            <a
-                              href={state.contract.explorerUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center"
-                            >
-                              <ExternalLink className="w-4 h-4 mr-2" />
-                              Verify on Stellar Explorer
-                            </a>
-                          </Button>
-                        </div>
+                      {sorobanContractId && (
+                        <a
+                          href="https://stellar.expert/explorer/testnet/contract/CDJFOVTWLKX7EF7VSLRV5MYEHH2HS4T3QG6XKYHHOQXSS66QDNMYHWFG"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 mt-3 text-xs text-green-700 underline"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          Ver contrato on-chain
+                        </a>
                       )}
                     </div>
                   </div>
@@ -313,32 +379,23 @@ export function ProcessingPage() {
               </Card>
             )}
 
-            {/* Error Message */}
+            {/* Erro */}
             {hasError && (
-              <Card className="mt-6 border-destructive/20 bg-destructive/5">
+              <Card className="border-destructive/20 bg-destructive/5">
                 <CardContent className="pt-6">
-                  <div className="flex">
+                  <div className="flex items-start gap-3">
                     <AlertCircle className="w-6 h-6 text-destructive flex-shrink-0" />
-                    <div className="ml-3">
-                      <h3 className="text-lg font-semibold text-destructive">
-                        Processing Error
-                      </h3>
-                      <p className="text-destructive/80 mt-1">
-                        {state.error || 'An error occurred during contract processing. Please try again.'}
+                    <div>
+                      <h3 className="text-lg font-semibold text-destructive">Erro no processamento</h3>
+                      <p className="text-destructive/80 text-sm mt-1">
+                        {state.error || 'Ocorreu um erro. Tente novamente.'}
                       </p>
-                      <div className="mt-4 flex space-x-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={actions.prevStep}
-                        >
-                          Go Back
+                      <div className="flex gap-3 mt-4">
+                        <Button variant="outline" size="sm" onClick={actions.prevStep}>
+                          Voltar
                         </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => window.location.reload()}
-                        >
-                          Try Again
+                        <Button size="sm" onClick={() => window.location.reload()}>
+                          Tentar Novamente
                         </Button>
                       </div>
                     </div>
@@ -348,110 +405,94 @@ export function ProcessingPage() {
             )}
           </div>
 
-          {/* Sidebar Info */}
+          {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Contract Details */}
-            {state.contract && (
+
+            {/* Contrato on-chain */}
+            {sorobanContractId && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center">
-                    <Shield className="w-4 h-4 mr-2" />
-                    Contract Details
+                    <Link2 className="w-4 h-4 mr-2" />
+                    Contrato On-chain
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3">
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground">Contract ID</label>
-                    <p className="font-mono text-sm break-all">{state.contract.id}</p>
+                    <label className="text-xs font-medium text-muted-foreground">ID do Contrato</label>
+                    <p className="font-mono text-xs break-all mt-1 bg-muted p-2 rounded">
+                      {sorobanContractId}
+                    </p>
                   </div>
+                  {sorobanTxHash && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">TX Hash</label>
+                      <p className="font-mono text-xs break-all mt-1 text-primary">
+                        {sorobanTxHash.slice(0, 20)}...
+                      </p>
+                    </div>
+                  )}
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground">Transaction Hash</label>
-                    <p className="font-mono text-sm break-all">{state.contract.stellarTxHash}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">Status</label>
-                    <div className="flex items-center mt-1">
-                      <Badge variant="secondary" className="capitalize">
-                        {state.contract.status}
+                    <label className="text-xs font-medium text-muted-foreground">Rede</label>
+                    <div className="flex items-center mt-1 gap-2">
+                      <Badge variant="secondary" className="text-xs">Stellar Testnet</Badge>
+                      <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-700">
+                        Soroban
                       </Badge>
                     </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">Network</label>
-                    <p className="text-sm font-medium">Stellar Testnet</p>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Order Summary */}
+            {/* Resumo do pedido */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center">
                   <CreditCard className="w-4 h-4 mr-2" />
-                  Order Summary
+                  Resumo do Pedido
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Product:</span>
-                  <span className="font-medium">{state.product?.name}</span>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Produto:</span>
+                  <span className="font-medium text-right max-w-[120px] truncate">
+                    {state.product?.name}
+                  </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Product Price:</span>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total:</span>
                   <span className="font-medium">
-                    {state.product ? parseFloat(state.product.price).toFixed(2) : '0'} XLM
+                    {state.selectedPlan
+                      ? `${parseFloat(state.selectedPlan.totalAmount).toFixed(2)} XLM`
+                      : '—'}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Payment Plan:</span>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Parcelas:</span>
                   <span className="font-medium">
-                    {state.selectedPlan?.installmentsCount}x installments
+                    {state.selectedPlan?.installmentsCount}x
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Each Payment:</span>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cada parcela:</span>
                   <span className="font-medium">
-                    {state.selectedPlan ? parseFloat(state.selectedPlan.installmentAmount).toFixed(2) : '0'} XLM
+                    {state.selectedPlan
+                      ? `${parseFloat(state.selectedPlan.installmentAmount).toFixed(2)} XLM`
+                      : '—'}
                   </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Interest Rate:</span>
-                  <span className="font-medium text-primary">
-                    {pricingBreakdown 
-                      ? `${pricingBreakdown.consumerInterestRate.toFixed(1)}% APR via Blend`
-                      : state.selectedPlan
-                        ? 'Dynamic rate via Blend'
-                        : 'Loading...'
-                    }
-                  </span>
-                </div>
-                <div className="border-t pt-3">
-                  <div className="flex justify-between font-semibold">
-                    <span>Total You'll Pay:</span>
-                    <span className="text-primary">
-                      {pricingBreakdown 
-                        ? `${pricingBreakdown.totalConsumerPayment.toFixed(7)} XLM`
-                        : state.selectedPlan 
-                          ? `${parseFloat(state.selectedPlan.totalAmount).toFixed(2)} XLM`
-                          : '0 XLM'
-                      }
-                    </span>
-                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Security Badge */}
+            {/* Badge de segurança */}
             <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <Shield className="w-8 h-8 text-primary mx-auto mb-3" />
-                  <h4 className="font-semibold text-primary mb-2">Blockchain Secured</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Your contract is secured by the Stellar network with full transparency and immutability.
-                  </p>
-                </div>
+              <CardContent className="pt-6 text-center">
+                <Shield className="w-8 h-8 text-primary mx-auto mb-3" />
+                <h4 className="font-semibold text-primary mb-1">Seguro pela Stellar</h4>
+                <p className="text-xs text-muted-foreground">
+                  Contrato imutável registrado on-chain. Pagamento via Etherfuse (regulado).
+                </p>
               </CardContent>
             </Card>
           </div>

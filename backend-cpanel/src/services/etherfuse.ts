@@ -173,5 +173,5 @@ export async function listarAtivos() {
  */
 export async function taxaCambio(): Promise<{ rate: number; currency: string }> {
   const response = await fetch(`${BASE_URL}/lookup/exchange-rates/BRL`);
-  return response.json();
+  return response.json() as Promise<{ rate: number; currency: string }>;
 }
