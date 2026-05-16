@@ -1,0 +1,851 @@
+[
+  {
+    "id": "BNPL-0000",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T16:26:22.153Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0001",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T16:30:22.660Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0002",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T16:32:22.749Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0003",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T16:33:03.357Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "paid",
+        "txHash": "sim_1778949208371_km51h5",
+        "paidAt": "2026-05-16T16:33:32.448Z"
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "paid",
+        "txHash": "sim_1778949263593_cxm7dj",
+        "paidAt": "2026-05-16T16:34:27.480Z"
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0004",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 2,
+    "installmentAmount": 600,
+    "status": "active",
+    "createdAt": "2026-05-16T16:35:12.876Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 600,
+        "status": "paid",
+        "txHash": "sim_1778949349377_s5ayc2",
+        "paidAt": "2026-05-16T16:35:53.353Z"
+      },
+      {
+        "number": 2,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0005",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T16:40:43.537Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0006",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 2,
+    "installmentAmount": 600,
+    "status": "active",
+    "createdAt": "2026-05-16T16:42:59.245Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0007",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T16:44:54.419Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0001",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:08:50.440Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0001",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:08:51.245Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0002",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:11:10.858Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0002",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:11:11.392Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0003",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:11:40.783Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0003",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:11:41.156Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0004",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 2,
+    "installmentAmount": 600,
+    "status": "active",
+    "createdAt": "2026-05-16T18:15:40.883Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0004",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 2,
+    "installmentAmount": 600,
+    "status": "active",
+    "createdAt": "2026-05-16T18:15:41.807Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0005",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:18:11.861Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0005",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:18:12.508Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0006",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 2,
+    "installmentAmount": 600,
+    "status": "active",
+    "createdAt": "2026-05-16T18:22:16.394Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0006",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 2,
+    "installmentAmount": 600,
+    "status": "active",
+    "createdAt": "2026-05-16T18:22:17.729Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0007",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 2,
+    "installmentAmount": 600,
+    "status": "active",
+    "createdAt": "2026-05-16T18:25:17.329Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0008",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:26:07.294Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0009",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:32:27.713Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0000",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:36:53.709Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0001",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 2,
+    "installmentAmount": 600,
+    "status": "active",
+    "createdAt": "2026-05-16T18:40:18.883Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0002",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 3,
+    "installmentAmount": 400,
+    "status": "active",
+    "createdAt": "2026-05-16T18:41:58.961Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 400,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0003",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 1200,
+    "installmentsCount": 2,
+    "installmentAmount": 600,
+    "status": "active",
+    "createdAt": "2026-05-16T18:48:03.576Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 600,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0004",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 19.9,
+    "installmentsCount": 3,
+    "installmentAmount": 6.633333333333333,
+    "status": "active",
+    "createdAt": "2026-05-16T18:51:39.345Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 6.633333333333333,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 6.633333333333333,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 6.633333333333333,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0005",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 19.9,
+    "installmentsCount": 3,
+    "installmentAmount": 6.633333333333333,
+    "status": "active",
+    "createdAt": "2026-05-16T19:01:15.436Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 6.633333333333333,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 6.633333333333333,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 6.633333333333333,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  },
+  {
+    "id": "BNPL-0006",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 19.9,
+    "installmentsCount": 3,
+    "installmentAmount": 6.633333333333333,
+    "status": "active",
+    "createdAt": "2026-05-16T19:13:46.994Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 6.633333333333333,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 6.633333333333333,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 3,
+        "amount": 6.633333333333333,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
+  }
+]

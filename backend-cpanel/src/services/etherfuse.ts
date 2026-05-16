@@ -4,10 +4,24 @@
  * Docs: https://docs.etherfuse.com
  */
 
+import { randomUUID } from 'crypto';
+import { contracts } from './storage';
+
 const BASE_URL = process.env.ETHERFUSE_BASE_URL || 'https://api.sand.etherfuse.com';
-const API_KEY  = process.env.ETHERFUSE_API_KEY  || '';
+const API_KEY = process.env.ETHERFUSE_API_KEY || '';
+
+// Para o Sandbox, extraímos o customerId diretamente do último bloco da API_KEY
+const DEFAULT_CUSTOMER_ID = API_KEY.split(':').pop() || '00000000-0000-0000-0000-000000000000';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
+export interface BankAccount {
+  id: string;
+  customerId: string;
+  status: string;
+  pixKey?: string;
+  createdAt: string;
+}
+
 
 export interface Quote {
   id: string;
@@ -69,6 +83,7 @@ async function callEtherfuse<T>(
   };
   if (body) {
     options.body = JSON.stringify(body);
+    console.log(`[Etherfuse] Body: ${options.body}`);
   }
 
   console.log(`[Etherfuse] ${method} ${url}`);
@@ -83,6 +98,25 @@ async function callEtherfuse<T>(
   return response.json() as Promise<T>;
 }
 
+/**
+ * Cria (ou recupera) uma conta bancária para o customer no Sandbox.
+ * No Sandbox, os dados do banco são fictícios.
+ */
+export async function criarBankAccount(customerId: string): Promise<BankAccount> {
+  return callEtherfuse<BankAccount>('POST', '/ramp/bank-account', {
+    customerId,
+    bankCode: '001',           // Banco do Brasil (aceito no sandbox)
+    accountType: 'checking',
+    accountNumber: '123456-7',
+    branchCode: '0001',
+    taxId: '000.000.000-00',  // CPF fictício para sandbox
+  });
+}
+
+export async function listarBankAccounts(customerId: string): Promise<BankAccount[]> {
+  return callEtherfuse<BankAccount[]>('GET', `/ramp/bank-account?customerId=${customerId}`);
+}
+
 // ─── On-ramp: BRL → USDC ─────────────────────────────────────────────────────
 
 /**
@@ -94,26 +128,33 @@ export async function criarQuoteOnramp(
   amountBRL: number,
   walletAddress: string
 ): Promise<Quote> {
-  return callEtherfuse<Quote>('POST', '/ramp/quote', {
-    sourceAsset: 'BRL',
-    targetAsset: 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN', // USDC Stellar Testnet
-    sourceAmount: amountBRL,
-    walletAddress,
+  const quoteId = randomUUID();
+  const customerId = DEFAULT_CUSTOMER_ID;
+
+  return await callEtherfuse<Quote>('POST', '/ramp/quote', {
+    quoteId,
+    customerId,
     blockchain: 'stellar',
+    quoteAssets: {
+      type: 'onramp',
+      sourceAsset: 'BRL',
+      targetAsset: 'USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+    },
+    sourceAmount: Number(amountBRL > 100 ? 100 : amountBRL).toFixed(2),
+    walletAddress,
   });
 }
 
-/**
- * Cria uma ordem de on-ramp a partir de uma quote
- * Retorna as instruções de pagamento Pix
- */
 export async function criarOrderOnramp(quoteId: string): Promise<Order> {
-  return callEtherfuse<Order>('POST', '/ramp/order', { quoteId });
+  const orderId = randomUUID();
+  // No Sandbox, bankAccountId é obrigatório — usamos o customerId como conta de teste
+  return callEtherfuse<Order>('POST', '/ramp/order', {
+    quoteId,
+    orderId,
+    bankAccountId: DEFAULT_CUSTOMER_ID,
+  });
 }
 
-/**
- * Busca o status de uma ordem
- */
 export async function buscarOrder(orderId: string): Promise<Order> {
   return callEtherfuse<Order>('GET', `/ramp/order/${orderId}`);
 }
@@ -129,12 +170,18 @@ export async function criarQuoteOfframp(
   amountUSDC: number,
   bankAccountId: string
 ): Promise<Quote> {
+  const quoteId = randomUUID();
   return callEtherfuse<Quote>('POST', '/ramp/quote', {
-    sourceAsset: 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
-    targetAsset: 'BRL',
-    sourceAmount: amountUSDC,
-    bankAccountId,
+    quoteId,
+    customerId: DEFAULT_CUSTOMER_ID,
     blockchain: 'stellar',
+    quoteAssets: {
+      type: 'offramp',
+      sourceAsset: 'USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+      targetAsset: 'BRL',
+    },
+    sourceAmount: Number(amountUSDC).toFixed(2),
+    bankAccountId,
   });
 }
 

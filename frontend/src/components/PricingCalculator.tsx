@@ -132,19 +132,19 @@ export function PricingCalculator({ amount, installments, onPricingUpdate }: Pri
                   Merchant Fee ({pricingService.formatPercent(pricing.merchantFee)})
                 </span>
                 <span className="font-medium">
-                  {pricingService.formatXLM(pricing.merchantFeeAmount)}
+                  {pricingService.formatCrypto(pricing.merchantFeeAmount)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Transaction Fee</span>
                 <span className="font-medium">
-                  {pricingService.formatXLM(pricing.transactionFee)}
+                  {pricingService.formatCrypto(pricing.transactionFee)}
                 </span>
               </div>
               <div className="flex justify-between text-sm font-semibold pt-2 border-t">
                 <span>Total Merchant Cost</span>
                 <span className="text-primary">
-                  {pricingService.formatXLM(pricing.totalMerchantCost)}
+                  {pricingService.formatCrypto(pricing.totalMerchantCost)}
                 </span>
               </div>
             </div>
@@ -160,7 +160,7 @@ export function PricingCalculator({ amount, installments, onPricingUpdate }: Pri
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Product Amount</span>
                 <span className="font-medium">
-                  {pricingService.formatXLM(pricing.originalAmount)}
+                  {pricingService.formatCrypto(pricing.originalAmount)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
@@ -168,13 +168,13 @@ export function PricingCalculator({ amount, installments, onPricingUpdate }: Pri
                   Interest ({pricingService.formatPercent(pricing.consumerInterestRate)})
                 </span>
                 <span className="font-medium">
-                  {pricingService.formatXLM(pricing.consumerInterestAmount)}
+                  {pricingService.formatCrypto(pricing.consumerInterestAmount)}
                 </span>
               </div>
               <div className="flex justify-between text-sm font-semibold pt-2 border-t">
                 <span>Total Consumer Payment</span>
                 <span className="text-green-600">
-                  {pricingService.formatXLM(pricing.totalConsumerPayment)}
+                  {pricingService.formatCrypto(pricing.totalConsumerPayment)}
                 </span>
               </div>
             </div>

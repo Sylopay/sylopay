@@ -9,7 +9,7 @@ use soroban_sdk::{
 // Tipos de dados
 // ============================================================
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[contracttype]
 pub enum StatusParcela {
     Pendente,
@@ -17,7 +17,7 @@ pub enum StatusParcela {
     Vencida,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[contracttype]
 pub enum StatusContrato {
     Ativo,
@@ -95,9 +95,8 @@ impl SyloPayBNPL {
         valor_total: i128,
         num_parcelas: u32,
     ) -> String {
-        // Somente o admin pode criar contratos (chamado pelo backend)
-        let admin: Address = env.storage().instance().get(&ChaveStorage::Admin).unwrap();
-        admin.require_auth();
+        // O próprio cliente autoriza a criação do contrato via Freighter
+        cliente.require_auth();
 
         if valor_total <= 0 {
             panic!("Valor total deve ser positivo");
@@ -176,15 +175,14 @@ impl SyloPayBNPL {
         numero_parcela: u32,
         tx_hash: String,
     ) {
-        // Somente o admin pode registrar pagamentos (chamado pelo webhook)
-        let admin: Address = env.storage().instance().get(&ChaveStorage::Admin).unwrap();
-        admin.require_auth();
-
         let mut contrato: ContratoBNPL = env
             .storage()
             .persistent()
             .get(&ChaveStorage::Contrato(contrato_id.clone()))
             .expect("Contrato nao encontrado");
+
+        // O próprio cliente dono do contrato autoriza o pagamento
+        contrato.cliente.require_auth();
 
         if contrato.status != StatusContrato::Ativo {
             panic!("Contrato nao esta ativo");

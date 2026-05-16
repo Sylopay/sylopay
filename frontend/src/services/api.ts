@@ -68,8 +68,8 @@ export const apiService = {
     return new Promise(resolve => setTimeout(resolve, ms));
   },
 
-  formatXLM(amount: string): string {
-    return parseFloat(amount).toFixed(7) + ' XLM';
+  formatCrypto(amount: string): string {
+    return parseFloat(amount).toFixed(7) + ' USDC';
   },
 
   generateStellarExplorerUrl(txHash: string): string {

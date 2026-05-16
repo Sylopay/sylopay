@@ -323,7 +323,7 @@ export function ContractPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Product Price:</span>
                     <span className="font-medium">
-                      {state.product ? parseFloat(state.product.price).toFixed(2) : '0'} XLM
+                      BRL {state.product ? parseFloat(state.product.price).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00'}
                     </span>
                   </div>
 
@@ -337,7 +337,7 @@ export function ContractPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Each Payment:</span>
                     <span className="font-medium">
-                      {state.selectedPlan ? parseFloat(state.selectedPlan.installmentAmount).toFixed(2) : '0'} XLM
+                      BRL {state.selectedPlan ? parseFloat(state.selectedPlan.installmentAmount).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00'}
                     </span>
                   </div>
 
@@ -356,10 +356,10 @@ export function ContractPage() {
                       <span>Total You'll Pay:</span>
                       <span className="text-primary">
                         {pricingBreakdown 
-                          ? `${pricingBreakdown.totalConsumerPayment.toFixed(7)} XLM`
-                          : state.selectedPlan 
-                            ? `${parseFloat(state.selectedPlan.totalAmount).toFixed(2)} XLM`
-                            : '0 XLM'
+                          ? `BRL ${pricingBreakdown.totalConsumerPayment.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                            : state.selectedPlan
+                            ? `BRL ${parseFloat(state.selectedPlan.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                            : 'BRL 0.00'
                         }
                       </span>
                     </div>
@@ -391,15 +391,15 @@ export function ContractPage() {
                         <div className="bg-background rounded p-2 space-y-1">
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Processing Fee ({pricingService.formatPercent(pricingBreakdown.merchantFee)})</span>
-                            <span className="font-medium">{pricingService.formatXLM(pricingBreakdown.merchantFeeAmount)}</span>
+                            <span className="font-medium">{pricingService.formatCrypto(pricingBreakdown.merchantFeeAmount)}</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Transaction Fee</span>
-                            <span className="font-medium">{pricingService.formatXLM(pricingBreakdown.transactionFee)}</span>
+                            <span className="font-medium">{pricingService.formatCrypto(pricingBreakdown.transactionFee)}</span>
                           </div>
                           <div className="flex justify-between text-xs font-semibold pt-1 border-t">
                             <span>Merchant Total</span>
-                            <span className="text-blue-600">{pricingService.formatXLM(pricingBreakdown.totalMerchantCost)}</span>
+                            <span className="text-blue-600">{pricingService.formatCrypto(pricingBreakdown.totalMerchantCost)}</span>
                           </div>
                         </div>
                       </div>
@@ -413,15 +413,15 @@ export function ContractPage() {
                         <div className="bg-background rounded p-2 space-y-1">
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Product Price</span>
-                            <span className="font-medium">{pricingService.formatXLM(pricingBreakdown.originalAmount)}</span>
+                            <span className="font-medium">{pricingService.formatCrypto(pricingBreakdown.originalAmount)}</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Interest ({pricingService.formatPercent(pricingBreakdown.consumerInterestRate)} APR)</span>
-                            <span className="font-medium">{pricingService.formatXLM(pricingBreakdown.consumerInterestAmount)}</span>
+                            <span className="font-medium">{pricingService.formatCrypto(pricingBreakdown.consumerInterestAmount)}</span>
                           </div>
                           <div className="flex justify-between text-xs font-semibold pt-1 border-t">
                             <span>Your Total</span>
-                            <span className="text-green-600">{pricingService.formatXLM(pricingBreakdown.totalConsumerPayment)}</span>
+                            <span className="text-green-600">{pricingService.formatCrypto(pricingBreakdown.totalConsumerPayment)}</span>
                           </div>
                         </div>
                       </div>

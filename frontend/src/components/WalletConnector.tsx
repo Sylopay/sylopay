@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, Key, Smartphone, Plus, Check, AlertCircle, ExternalLink, Zap } from 'lucide-react';
-import { requestAccess, getPublicKey, isConnected, getNetwork } from '@stellar/freighter-api';
+import { Monitor, Check, AlertCircle, ExternalLink } from 'lucide-react';
+import { requestAccess, getNetwork, isConnected } from '@stellar/freighter-api';
+
 import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
+import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 
@@ -12,7 +12,7 @@ interface WalletOption {
   name: string;
   description: string;
   icon: React.ReactNode;
-  type: 'browser' | 'mobile' | 'manual' | 'demo' | 'new';
+  type: string;
   available?: boolean;
   comingSoon?: boolean;
 }
@@ -28,8 +28,7 @@ export default function WalletConnector({
   onWalletSelect, 
   className = '' 
 }: WalletConnectorProps) {
-  const [selectedWallet, setSelectedWallet] = useState<string>('demo');
-  const [manualKey, setManualKey] = useState('');
+  const [selectedWallet, setSelectedWallet] = useState<string>('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [freighterAvailable, setFreighterAvailable] = useState(false);
@@ -38,18 +37,16 @@ export default function WalletConnector({
   useEffect(() => {
     const checkFreighter = async () => {
       try {
-        // Check if Freighter is installed using the official API
         const connected = await isConnected();
         setFreighterAvailable(true);
         
-        // If already connected, auto-select the user's wallet
         if (connected) {
           try {
-            const publicKey = await getPublicKey();
+            const acess = await requestAccess()   ;
             const network = await getNetwork();
             
-            if (publicKey && network.network === 'TESTNET') {
-              onWalletSelect(publicKey, 'freighter', 'Freighter Wallet');
+            if (acess.address && network.network === 'TESTNET') {
+              onWalletSelect(acess.address, 'freighter', 'Freighter Wallet');
               setSelectedWallet('freighter');
             }
           } catch (error) {
@@ -63,48 +60,16 @@ export default function WalletConnector({
     };
 
     checkFreighter();
-  }, [onWalletSelect]);
+  }, []); // Only on mount
 
   const walletOptions: WalletOption[] = [
     {
       id: 'freighter',
       name: 'Freighter Wallet',
-      description: 'Connect your Freighter browser extension',
-      icon: <Wallet className="w-5 h-5" />,
-      type: 'browser',
+      description: 'Stellar browser extension',
+      icon: <Monitor className="w-5 h-5" />,
+      type: 'extension',
       available: freighterAvailable
-    },
-    {
-      id: 'lobstr',
-      name: 'Lobstr Mobile',
-      description: 'Connect via QR code (WalletConnect)',
-      icon: <Smartphone className="w-5 h-5" />,
-      type: 'mobile',
-      comingSoon: true
-    },
-    {
-      id: 'manual',
-      name: 'Manual Entry',
-      description: 'Enter your Stellar public key manually',
-      icon: <Key className="w-5 h-5" />,
-      type: 'manual',
-      available: true
-    },
-    {
-      id: 'demo',
-      name: 'Demo Account',
-      description: 'Use pre-configured demo account for testing',
-      icon: <Zap className="w-5 h-5" />,
-      type: 'demo',
-      available: true
-    },
-    {
-      id: 'new',
-      name: 'Create New Wallet',
-      description: 'Generate a new Stellar keypair',
-      icon: <Plus className="w-5 h-5" />,
-      type: 'new',
-      comingSoon: true
     }
   ];
 
@@ -113,21 +78,18 @@ export default function WalletConnector({
     setConnectionError(null);
 
     try {
-      // Request access to Freighter using official API
       const result = await requestAccess();
       
       if (result.error) {
         throw new Error(result.error);
       }
 
-      // Get the user's public key
-      const publicKey = await getPublicKey();
+      const publicKey = result.address;
       
       if (!publicKey) {
         throw new Error('No public key returned from Freighter');
       }
 
-      // Verify we're on testnet
       const network = await getNetwork();
       if (network.network !== 'TESTNET') {
         throw new Error('Please switch Freighter to Stellar Testnet for this demo');
@@ -144,34 +106,7 @@ export default function WalletConnector({
     }
   };
 
-  const handleManualEntry = () => {
-    if (!manualKey.trim()) {
-      setConnectionError('Please enter a valid Stellar public key');
-      return;
-    }
-
-    // Basic validation for Stellar public key format
-    if (!manualKey.startsWith('G') || manualKey.length !== 56) {
-      setConnectionError('Invalid Stellar public key format. Must start with G and be 56 characters long.');
-      return;
-    }
-
-    setConnectionError(null);
-    onWalletSelect(manualKey.trim(), 'manual', 'Manual Entry');
-    setSelectedWallet('manual');
-  };
-
-  const handleDemoAccount = () => {
-    const demoKey = 'GA57YQCS5NV4TXQPXR6DIKDYTQCMODQ3HNFKJZOULEE7M74SZ6RAIVLA';
-    onWalletSelect(demoKey, 'demo', 'Demo Account');
-    setSelectedWallet('demo');
-    setConnectionError(null);
-  };
-
   const isWalletSelected = (walletId: string) => {
-    if (walletId === 'manual') {
-      return selectedWallet === 'manual' && manualKey === selectedPublicKey;
-    }
     return selectedWallet === walletId;
   };
 
@@ -199,19 +134,14 @@ export default function WalletConnector({
               className={`cursor-pointer transition-all hover:shadow-md ${
                 isWalletSelected(wallet.id)
                   ? 'ring-2 ring-primary border-primary'
-                  : wallet.available 
+                  : wallet.available && !wallet.comingSoon
                     ? 'hover:border-primary/50' 
                     : 'opacity-50 cursor-not-allowed'
               }`}
               onClick={() => {
                 if (!wallet.available || wallet.comingSoon) return;
-                
                 if (wallet.id === 'freighter') {
                   connectFreighter();
-                } else if (wallet.id === 'demo') {
-                  handleDemoAccount();
-                } else if (wallet.id === 'manual') {
-                  setSelectedWallet('manual');
                 }
               }}
             >
@@ -234,11 +164,6 @@ export default function WalletConnector({
                     <div>
                       <div className="flex items-center space-x-2">
                         <h4 className="font-medium">{wallet.name}</h4>
-                        {wallet.comingSoon && (
-                          <Badge variant="secondary" className="text-xs">
-                            Coming Soon
-                          </Badge>
-                        )}
                         {wallet.id === 'freighter' && !wallet.available && (
                           <Badge variant="outline" className="text-xs">
                             Not Installed
@@ -270,32 +195,12 @@ export default function WalletConnector({
                     </Button>
                   )}
                 </div>
-
-                {/* Manual entry field */}
-                {wallet.id === 'manual' && selectedWallet === 'manual' && (
-                  <div className="mt-4 space-y-3">
-                    <Input
-                      placeholder="GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-                      value={manualKey}
-                      onChange={(e) => setManualKey(e.target.value)}
-                      className="font-mono text-sm"
-                    />
-                    <Button
-                      onClick={handleManualEntry}
-                      size="sm"
-                      className="w-full"
-                      disabled={!manualKey.trim()}
-                    >
-                      Connect Manual Key
-                    </Button>
-                  </div>
-                )}
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Connected wallet info */}
+        {/* Connected wallet info summary */}
         {selectedPublicKey && (
           <Card className="bg-green-500/5 border-green-500/20">
             <CardContent className="pt-4 pb-4">
@@ -305,7 +210,7 @@ export default function WalletConnector({
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-green-600">
-                    Wallet Connected
+                    Wallet Selected ({selectedWallet})
                   </p>
                   <p className="text-xs text-green-600/80 font-mono truncate">
                     {selectedPublicKey}
@@ -332,7 +237,6 @@ export default function WalletConnector({
           </Card>
         )}
 
-        {/* Loading state */}
         {isConnecting && (
           <div className="text-center py-4">
             <div className="inline-flex items-center space-x-2 text-muted-foreground">

@@ -193,19 +193,19 @@ class PricingService {
     return this.marketComparisons;
   }
 
-  formatXLM(amount: number): string {
-    return `${amount.toFixed(7)} XLM`;
+  formatCrypto(amount: number): string {
+    return `${amount.toFixed(7)} USDC`;
   }
 
   formatPercent(rate: number): string {
     return `${rate.toFixed(2)}%`;
   }
 
-  formatCurrency(amount: number, currency: string = 'XLM'): string {
-    if (currency === 'XLM') {
-      return this.formatXLM(amount);
+  formatCurrency(amount: number, currency: string = 'BRL'): string {
+    if (currency === 'BRL') {
+      return `BRL ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
-    return `$${amount.toFixed(2)} USD`;
+    return this.formatCrypto(amount);
   }
 }
 

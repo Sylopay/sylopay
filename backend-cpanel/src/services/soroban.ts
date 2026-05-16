@@ -14,13 +14,20 @@ import {
   scValToNative,
   xdr,
   Address,
+  rpc as SorobanRpc,
 } from '@stellar/stellar-sdk';
-import * as SorobanRpc from '@stellar/stellar-sdk/rpc';
 
-const CONTRACT_ID      = process.env.SOROBAN_CONTRACT_ID      || '';
-const ADMIN_SECRET     = process.env.SOROBAN_ADMIN_SECRET      || '';
-const RPC_URL          = process.env.SOROBAN_RPC_URL           || 'https://soroban-testnet.stellar.org';
-const NETWORK_PASSPHRASE = process.env.SOROBAN_NETWORK_PASSPHRASE || Networks.TESTNET;
+// Exportando para uso em outros arquivos (ex: app-hybrid.ts)
+export { rpc, TransactionBuilder, Transaction, Networks, scValToNative } from '@stellar/stellar-sdk';
+
+// Helper para garantir que as variáveis de ambiente estão carregadas
+const getEnv = (key: string, fallback: string): string => {
+  return process.env[key] || fallback;
+};
+
+const getContractId = () => getEnv('SOROBAN_CONTRACT_ID', 'CBY3H6BBUJ64H3QGSDMEQVZU3GKXV4WRE7V7X62PUFXNWYAHI4CCWTXH');
+const getRpcUrl = () => getEnv('SOROBAN_RPC_URL', 'https://soroban-testnet.stellar.org');
+export const getNetworkPassphrase = () => getEnv('SOROBAN_NETWORK_PASSPHRASE', 'Test SDF Network ; September 2015');
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -47,12 +54,14 @@ export interface ParcelaStatus {
 // ─── Helper: RPC client ───────────────────────────────────────────────────────
 
 function getRpc(): SorobanRpc.Server {
-  return new SorobanRpc.Server(RPC_URL, { allowHttp: RPC_URL.startsWith('http://') });
+  const url = getRpcUrl();
+  return new SorobanRpc.Server(url, { allowHttp: url.startsWith('http://') });
 }
 
 function getAdminKeypair(): Keypair {
-  if (!ADMIN_SECRET) throw new Error('SOROBAN_ADMIN_SECRET não configurada');
-  return Keypair.fromSecret(ADMIN_SECRET);
+  const secret = getEnv('SOROBAN_ADMIN_SECRET', '');
+  if (!secret) throw new Error('SOROBAN_ADMIN_SECRET não configurada');
+  return Keypair.fromSecret(secret);
 }
 
 // ─── Helper: submit de transação Soroban ─────────────────────────────────────
@@ -63,13 +72,13 @@ async function invokeContract(
 ): Promise<any> {
   const rpc     = getRpc();
   const admin   = getAdminKeypair();
-  const contract = new Contract(CONTRACT_ID);
+  const contract = new Contract(getContractId());
 
   const account = await rpc.getAccount(admin.publicKey());
 
   const tx = new TransactionBuilder(account, {
     fee: BASE_FEE,
-    networkPassphrase: NETWORK_PASSPHRASE,
+    networkPassphrase: getNetworkPassphrase(),
   })
     .addOperation(contract.call(functionName, ...args))
     .setTimeout(30)
@@ -117,11 +126,49 @@ async function invokeContract(
 // ─── Funções do contrato ──────────────────────────────────────────────────────
 
 /**
- * Cria um contrato BNPL on-chain
- * @param merchantPublicKey Endereço Stellar do comerciante
- * @param clientePublicKey  Endereço Stellar do cliente
- * @param valorTotalUsdc    Valor total em micro-USDC (7 casas — 1 USDC = 10_000_000)
- * @param numParcelas       Número de parcelas (1-12)
+ * Prepara o XDR para criar um contrato BNPL on-chain
+ * O usuário deverá assinar este XDR via Freighter
+ */
+export async function prepararTransacaoCriarContrato(
+  merchantPublicKey: string,
+  clientePublicKey: string,
+  valorTotalUsdc: number,
+  numParcelas: number
+): Promise<{ xdr: string }> {
+  const rpc = getRpc();
+  const contract = new Contract(getContractId());
+  
+  // A conta de origem é a do cliente para que ele assine e pague a taxa
+  const account = await rpc.getAccount(clientePublicKey);
+
+  const args = [
+    new Address(merchantPublicKey).toScVal(),
+    new Address(clientePublicKey).toScVal(),
+    nativeToScVal(BigInt(valorTotalUsdc), { type: 'i128' }),
+    nativeToScVal(numParcelas, { type: 'u32' }),
+  ];
+
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: getNetworkPassphrase(),
+  })
+    .addOperation(contract.call('criar_contrato', ...args))
+    .setTimeout(60)
+    .build();
+
+  // Simulação para preencher os recursos (footprint, CPU, etc)
+  const simResult = await rpc.simulateTransaction(tx);
+  if (SorobanRpc.Api.isSimulationError(simResult)) {
+    throw new Error(`Simulação falhou: ${simResult.error}`);
+  }
+
+  const preparedTx = SorobanRpc.assembleTransaction(tx, simResult).build();
+  
+  return { xdr: preparedTx.toXDR() };
+}
+
+/**
+ * Cria um contrato BNPL on-chain (assinatura pelo ADMIN - legado/fallback)
  */
 export async function criarContratoBNPL(
   merchantPublicKey: string,
@@ -129,7 +176,7 @@ export async function criarContratoBNPL(
   valorTotalUsdc: number,
   numParcelas: number
 ): Promise<{ contratoId: string; txHash: string }> {
-  console.log(`[Soroban] Criando contrato: ${merchantPublicKey} → ${clientePublicKey} | ${valorTotalUsdc} uUSDC x${numParcelas}`);
+  console.log(`[Soroban] Criando contrato (Admin): ${merchantPublicKey} → ${clientePublicKey} | ${valorTotalUsdc} uUSDC x${numParcelas}`);
 
   const args = [
     new Address(merchantPublicKey).toScVal(),
@@ -168,17 +215,52 @@ export async function pagarParcela(
 }
 
 /**
+ * Prepara o XDR para o usuário pagar uma parcela on-chain via Freighter
+ */
+export async function prepararTransacaoPagarParcela(
+  contratoId: string,
+  numeroParcela: number,
+  clientePublicKey: string
+): Promise<{ xdr: string }> {
+  const rpc = getRpc();
+  const contract = new Contract(getContractId());
+  const account = await rpc.getAccount(clientePublicKey);
+
+  const args = [
+    nativeToScVal(contratoId, { type: 'string' }),
+    nativeToScVal(numeroParcela, { type: 'u32' }),
+    nativeToScVal('', { type: 'string' }), // Sem hash externo (pagamento direto)
+  ];
+
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: getNetworkPassphrase(),
+  })
+    .addOperation(contract.call('pagar_parcela', ...args))
+    .setTimeout(60)
+    .build();
+
+  const simResult = await rpc.simulateTransaction(tx);
+  if (SorobanRpc.Api.isSimulationError(simResult)) {
+    throw new Error(`Simulação falhou: ${simResult.error}`);
+  }
+
+  const preparedTx = SorobanRpc.assembleTransaction(tx, simResult).build();
+  return { xdr: preparedTx.toXDR() };
+}
+
+/**
  * Consulta o status de um contrato (readonly — não gasta gas)
  */
 export async function statusContrato(contratoId: string): Promise<ContratoStatus> {
   const rpc      = getRpc();
   const admin    = getAdminKeypair();
-  const contract = new Contract(CONTRACT_ID);
+  const contract = new Contract(getContractId());
 
   const account = await rpc.getAccount(admin.publicKey());
   const tx = new TransactionBuilder(account, {
     fee: BASE_FEE,
-    networkPassphrase: NETWORK_PASSPHRASE,
+    networkPassphrase: getNetworkPassphrase(),
   })
     .addOperation(
       contract.call(
@@ -204,12 +286,12 @@ export async function statusContrato(contratoId: string): Promise<ContratoStatus
 export async function listarContratosCliente(clientePublicKey: string): Promise<string[]> {
   const rpc      = getRpc();
   const admin    = getAdminKeypair();
-  const contract = new Contract(CONTRACT_ID);
+  const contract = new Contract(getContractId());
 
   const account = await rpc.getAccount(admin.publicKey());
   const tx = new TransactionBuilder(account, {
     fee: BASE_FEE,
-    networkPassphrase: NETWORK_PASSPHRASE,
+    networkPassphrase: getNetworkPassphrase(),
   })
     .addOperation(
       contract.call(
@@ -234,14 +316,14 @@ export async function listarContratosCliente(clientePublicKey: string): Promise<
 
 function mapContratoStatus(raw: any): ContratoStatus {
   const statusMap: Record<string, ContratoStatus['status']> = {
-    Ativo: 'Ativo',
-    Concluido: 'Concluido',
-    Inadimplente: 'Inadimplente',
+    Ativo: 'Active' as any,
+    Concluido: 'Completed' as any,
+    Inadimplente: 'Overdue' as any,
   };
   const parcelaStatusMap: Record<string, ParcelaStatus['status']> = {
-    Pendente: 'Pendente',
-    Paga: 'Paga',
-    Vencida: 'Vencida',
+    Pendente: 'Pending' as any,
+    Paga: 'Paid' as any,
+    Vencida: 'Overdue' as any,
   };
 
   return {

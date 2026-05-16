@@ -155,9 +155,9 @@ export function PixPayment({
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-green-700">Pagamento Confirmado!</h3>
+              <h3 className="text-xl font-bold text-green-700">Payment Confirmed!</h3>
               <p className="text-green-600/80 text-sm mt-1">
-                Sua parcela foi registrada na blockchain Stellar.
+                Your installment has been registered on the Stellar blockchain.
               </p>
             </div>
             {txHash && (
@@ -168,7 +168,7 @@ export function PixPayment({
                 className="flex items-center gap-1 text-xs text-green-600 underline underline-offset-2"
               >
                 <ExternalLink className="w-3 h-3" />
-                Ver transação no Stellar Explorer
+                View transaction on Stellar Explorer
               </a>
             )}
           </div>
@@ -184,13 +184,13 @@ export function PixPayment({
           <div className="flex flex-col items-center text-center gap-4">
             <AlertCircle className="w-12 h-12 text-destructive" />
             <div>
-              <h3 className="text-lg font-bold text-destructive">Chave Pix Expirada</h3>
+              <h3 className="text-lg font-bold text-destructive">Pix Key Expired</h3>
               <p className="text-destructive/80 text-sm mt-1">
-                O tempo para pagamento acabou. Clique em "Tentar Novamente" para gerar uma nova chave.
+                Payment time has expired. Click "Try Again" to generate a new key.
               </p>
             </div>
             <Button variant="outline" onClick={() => window.location.reload()}>
-              Tentar Novamente
+              Try Again
             </Button>
           </div>
         </CardContent>
@@ -210,12 +210,12 @@ export function PixPayment({
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
             <Zap className="w-4 h-4 text-primary" />
-            Pague via Pix
+            Pay via Pix
           </CardTitle>
           {status === 'detected' ? (
             <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-500/30 animate-pulse">
               <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-              Detectado — aguardando liquidação
+              Detected — awaiting settlement
             </Badge>
           ) : (
             <Badge variant="secondary" className="font-mono text-xs">
@@ -225,7 +225,7 @@ export function PixPayment({
           )}
         </div>
         <CardDescription>
-          Escaneie o QR Code ou copie a chave. O pagamento é confirmado automaticamente.
+          Scan the QR Code or copy the key. Payment is confirmed automatically.
         </CardDescription>
       </CardHeader>
 
@@ -247,14 +247,14 @@ export function PixPayment({
           {/* Valor */}
           <div className="text-center">
             <span className="text-3xl font-bold text-foreground">
-              R$ {amountBRL.toFixed(2).replace('.', ',')}
+              BRL {amountBRL.toFixed(2)}
             </span>
           </div>
         </div>
 
         {/* Chave Pix copiável */}
         <div className="space-y-2">
-          <label className="text-xs font-medium text-muted-foreground">Chave Pix</label>
+          <label className="text-xs font-medium text-muted-foreground">Pix Key</label>
           <div className="flex items-center gap-2">
             <div className="flex-1 bg-muted rounded-lg px-3 py-2 font-mono text-xs break-all text-foreground select-all">
               {pixKey}
@@ -270,12 +270,12 @@ export function PixPayment({
               {copied ? (
                 <>
                   <CheckCircle className="w-4 h-4 mr-1" />
-                  Copiado!
+                  Copied!
                 </>
               ) : (
                 <>
                   <Copy className="w-4 h-4 mr-1" />
-                  Copiar
+                  Copy
                 </>
               )}
             </Button>
@@ -285,7 +285,7 @@ export function PixPayment({
         {/* Countdown bar */}
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Tempo restante</span>
+            <span>Time remaining</span>
             <span className={secondsLeft < 60 ? 'text-destructive font-semibold' : ''}>
               {formatTime(secondsLeft)}
             </span>
@@ -301,8 +301,8 @@ export function PixPayment({
           <RefreshCw className="w-3 h-3 animate-spin" />
           <span>
             {status === 'detected'
-              ? 'Pagamento detectado — aguardando confirmação on-chain...'
-              : `Verificando automaticamente... (${pollCount} verificações)`
+              ? 'Payment detected — awaiting on-chain confirmation...'
+              : `Checking automatically... (${pollCount} checks)`
             }
           </span>
         </div>

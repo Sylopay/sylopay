@@ -1,6 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { ExternalLink, Calendar, DollarSign, CheckCircle, Clock, RefreshCw,
-  Home, TrendingUp, Wallet, Activity, Star, BarChart3, Target, Award, Link2 } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { DEMO_PRODUCT } from '../types';
+import {
+  ExternalLink, Calendar, DollarSign, CheckCircle, Clock, RefreshCw,
+  Home, TrendingUp, Wallet, Activity, Star, BarChart3, Target, Award, Link2
+} from 'lucide-react';
 import { useBNPL } from '../hooks/useBNPL';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -12,6 +15,7 @@ import apiService from '../services/api';
 import { StellarAccount } from '../types';
 import { PricingBreakdown } from '../services/pricingService';
 import { useNavigate } from 'react-router-dom';
+import { signTransaction } from '@stellar/freighter-api';
 
 interface InstallmentSchedule {
   number: number;
@@ -41,115 +45,151 @@ interface SorobanContrato {
 
 export function DashboardPage() {
   const { state, actions } = useBNPL();
-  const [accountInfo, setAccountInfo]         = useState<StellarAccount | null>(null);
-  const [installments, setInstallments]       = useState<InstallmentSchedule[]>([]);
-  const [loading, setLoading]                 = useState(true);
+  const [accountInfo, setAccountInfo] = useState<StellarAccount | null>(null);
+  const [installments, setInstallments] = useState<InstallmentSchedule[]>([]);
+  const [loading, setLoading] = useState(true);
   const [pricingBreakdown, setPricingBreakdown] = useState<PricingBreakdown | null>(null);
   const [showMerchantAnalytics, setShowMerchantAnalytics] = useState(false);
   const [sorobanContrato, setSorobanContrato] = useState<SorobanContrato | null>(null);
-  const [refreshing, setRefreshing]           = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
 
   const handleNewPurchase = () => navigate('/');
 
-  // ── Busca dados on-chain do contrato Soroban ────────────────────────────────
-  const fetchSorobanData = useCallback(async (contratoId: string) => {
+  // ── Busca TODOS os contratos do cliente ────────────────────────────────────
+  const fetchAllContracts = useCallback(async () => {
+    if (!state.customer?.stellarPublicKey) return;
     try {
-      const res = await fetch(`/api/soroban/contract/${encodeURIComponent(contratoId)}`);
+      const res = await fetch(`/api/soroban/contracts/cliente/${state.customer.stellarPublicKey}`);
       if (!res.ok) return;
       const json = await res.json();
-      if (!json.success) return;
-
-      const contrato: SorobanContrato = json.contrato;
-      setSorobanContrato(contrato);
-
-      // Mescla os dados on-chain com o schedule do plano
-      setInstallments(prev =>
-        prev.map(inst => {
-          const parcela = contrato.parcelas.find(p => p.numero === inst.number);
-          if (!parcela) return inst;
-          return {
-            ...inst,
-            status: parcela.status === 'Paga'
-              ? 'paid'
-              : parcela.status === 'Vencida'
-              ? 'overdue'
-              : inst.status,
-            txHash: parcela.txHash || undefined,
-            explorerUrl: parcela.txHash
-              ? `https://stellar.expert/explorer/testnet/tx/${parcela.txHash}`
-              : undefined,
-            paidDate: parcela.pagoEm
-              ? new Date(parcela.pagoEm * 1000).toISOString().split('T')[0]
-              : undefined,
-          };
-        })
-      );
+      if (json.success && Array.isArray(json.contracts)) {
+        // Se houver contratos, define o primeiro (ou o selecionado) como o atual para exibir detalhes
+        if (json.contracts.length > 0) {
+          // Atualiza o contrato selecionado ou pega o primeiro
+          const currentId = sorobanContrato?.id || state.contract?.id || json.contracts[0].id;
+          const updated = json.contracts.find((c: any) => c.id === currentId) || json.contracts[0];
+          setSorobanContrato(updated);
+        }
+      }
     } catch (err) {
-      console.warn('[Dashboard] Erro ao buscar Soroban:', err);
+      console.warn('[Dashboard] Erro ao buscar lista de contratos:', err);
     }
-  }, []);
+  }, [state.customer?.stellarPublicKey, sorobanContrato, state.contract?.id]);
 
-  // ── Carregamento inicial ────────────────────────────────────────────────────
+  // ── Carregamento inicial e Polling ──────────────────────────────────────────
   useEffect(() => {
     const fetchDashboardData = async () => {
-      if (!state.customer || !state.selectedPlan) return;
+      if (!state.customer?.stellarPublicKey) return;
 
       try {
         setLoading(true);
-
-        // Conta Stellar
+        // Conta Stellar Real
         const account = await apiService.getStellarAccount(state.customer.stellarPublicKey);
         setAccountInfo(account);
 
-        // Gera schedule local
-        const schedule = generateInstallmentSchedule();
-        setInstallments(schedule);
-
-        // Busca dados reais do contrato on-chain
-        if (state.contract?.id) {
-          await fetchSorobanData(state.contract.id);
-        }
+        await fetchAllContracts();
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        actions.setError('Error loading dashboard data');
       } finally {
         setLoading(false);
       }
     };
 
-    const generateInstallmentSchedule = (): InstallmentSchedule[] => {
-      if (!state.selectedPlan) return [];
-      const today = new Date();
-      return Array.from({ length: state.selectedPlan.installmentsCount }, (_, i) => {
-        const dueDate = new Date();
-        dueDate.setDate(today.getDate() + (i + 1) * state.selectedPlan!.frequencyDays);
-        return {
-          number: i + 1,
-          amount: state.selectedPlan!.installmentAmount,
-          dueDate: dueDate.toISOString().split('T')[0],
-          status: i === 0 ? 'due' : 'pending',
-        };
-      });
-    };
-
     fetchDashboardData();
-  }, [state.customer, state.selectedPlan]);
 
-  // ── Refresh manual on-chain ─────────────────────────────────────────────────
+    // Polling a cada 3 segundos para detectar pagamentos via webhook/pix
+    const interval = setInterval(() => {
+      fetchAllContracts();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [state.customer?.stellarPublicKey, fetchAllContracts]);
+
+  // ── Refresh manual ──────────────────────────────────────────────────────────
+  const handlePayWithWallet = async (numeroParcela: number) => {
+    if (!state.customer?.stellarPublicKey) {
+      alert('Please connect your wallet first.');
+      return;
+    }
+
+    if (!sorobanContrato) {
+      alert('On-chain contract not yet found. Please wait a few seconds for synchronization or refresh the page.');
+      return;
+    }
+
+    try {
+      setRefreshing(true);
+      console.log(`[Dashboard] Preparing on-chain payment for installment #${numeroParcela}...`);
+      
+      // 1. Prepara XDR
+      const res = await fetch('/api/soroban/prepare-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contratoId: sorobanContrato.id,
+          numeroParcela,
+          clientePublicKey: state.customer.stellarPublicKey,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Error preparing payment');
+      }
+      
+      const { xdr } = await res.json();
+
+      // 2. Signed via Freighter
+      console.log('[Dashboard] Requesting signature via Freighter...');
+      const signedXdr = await signTransaction(xdr, { 
+        networkPassphrase: 'Test SDF Network ; September 2015' 
+      });
+
+      // 3. Submit signed transaction
+      console.log('[Dashboard] Submitting signed transaction to network...');
+      const subRes = await fetch('/api/soroban/submit-transaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signedXdr }),
+      });
+
+      const subResult = await subRes.json();
+
+      if (subRes.ok && subResult.success) {
+        alert('✅ On-chain payment successful! The status will update shortly.');
+        await handleRefresh();
+      } else {
+        throw new Error(subResult.error || 'Transaction failed on network');
+      }
+    } catch (err) {
+      console.error('[Dashboard] Error during wallet payment:', err);
+      alert('❌ Payment failed: ' + (err instanceof Error ? err.message : 'Check your wallet connection'));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleRefresh = async () => {
-    if (!state.contract?.id || refreshing) return;
     setRefreshing(true);
-    await fetchSorobanData(state.contract.id);
+    await fetchAllContracts();
+    if (state.customer?.stellarPublicKey) {
+      const account = await apiService.getStellarAccount(state.customer.stellarPublicKey);
+      setAccountInfo(account);
+    }
     setRefreshing(false);
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   const formatAmount = (amount: string) => {
-    return `${parseFloat(amount).toFixed(2)} XLM`;
+    return `${parseFloat(amount).toFixed(2)} USDC`;
   };
 
   const getStatusIcon = (status: InstallmentSchedule['status']) => {
@@ -191,9 +231,42 @@ export function DashboardPage() {
     }
   };
 
-  const paidInstallments = installments.filter(i => i.status === 'paid').length;
-  const totalInstallments = installments.length;
+  const paidInstallments = sorobanContrato
+    ? sorobanContrato.parcelas.filter(p => p.status === 'Paid').length
+    : (installments?.filter(i => i.status === 'paid').length || 0);
+
+  const totalInstallments = sorobanContrato
+    ? sorobanContrato.parcelas.length
+    : (installments?.length || 0);
+
   const progress = totalInstallments > 0 ? (paidInstallments / totalInstallments) * 100 : 0;
+
+  const displayInstallments = useMemo(() => {
+    if (sorobanContrato) {
+      return sorobanContrato.parcelas.map(p => ({
+        number: p.numero,
+        amount: (p.valorUsdc / 10000000).toFixed(2), // USDC scale adjustment
+        dueDate: p.vencimento ? new Date(p.vencimento * 1000).toISOString() : new Date().toISOString(),
+        status: p.status === 'Paid' ? 'paid' : 'due',
+        txHash: p.txHash,
+        explorerUrl: p.txHash ? `https://stellar.expert/explorer/testnet/tx/${p.txHash}` : undefined
+      }));
+    }
+
+    // Fallback to mock installments based on selected plan if not yet on-chain
+    if (state.selectedPlan) {
+      return Array.from({ length: state.selectedPlan.installmentsCount }, (_, i) => ({
+        number: i + 1,
+        amount: parseFloat(state.selectedPlan!.installmentAmount).toFixed(2),
+        dueDate: new Date(Date.now() + (i + 1) * 30 * 24 * 60 * 60 * 1000).toISOString(),
+        status: 'due' as const,
+        txHash: undefined,
+        explorerUrl: undefined
+      }));
+    }
+
+    return installments;
+  }, [sorobanContrato, state.selectedPlan, installments]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -229,15 +302,15 @@ export function DashboardPage() {
                   <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                 </Button>
               )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleNewPurchase}
-                  className="flex items-center"
-                >
-                  <Home className="w-4 h-4 mr-2" />
-                  New Purchase
-                </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNewPurchase}
+                className="flex items-center"
+              >
+                <Home className="w-4 h-4 mr-2" />
+                New Purchase
+              </Button>
             </div>
 
           </div>
@@ -333,7 +406,7 @@ export function DashboardPage() {
                   <div className="text-xs text-purple-600">vs T+7 traditional</div>
                 </div>
               </div>
-              
+
               {state.selectedPlan && (
                 <PricingCalculator
                   amount={parseFloat(state.selectedPlan.totalAmount)}
@@ -356,7 +429,7 @@ export function DashboardPage() {
                     <div>
                       <p className="text-sm text-muted-foreground">Total Amount</p>
                       <p className="text-2xl font-bold text-foreground">
-                        {state.selectedPlan ? formatAmount(state.selectedPlan.totalAmount) : '0 XLM'}
+                        {sorobanContrato ? `${(sorobanContrato.valorTotal / 10000000).toFixed(2)} USDC` : '0 USDC'}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
@@ -372,7 +445,7 @@ export function DashboardPage() {
                     <div>
                       <p className="text-sm text-muted-foreground">Installments</p>
                       <p className="text-2xl font-bold text-foreground">
-                        {state.selectedPlan?.installmentsCount || 0}x
+                        {totalInstallments}x
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
@@ -423,7 +496,7 @@ export function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center">
                     <Calendar className="w-5 h-5 mr-2" />
-                    Calendário de Pagamentos
+                    Payment Schedule
                   </CardTitle>
                   {sorobanContrato && (
                     <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-700 border-purple-500/20">
@@ -434,25 +507,25 @@ export function DashboardPage() {
                 </div>
                 <CardDescription>
                   {sorobanContrato
-                    ? 'Dados lidos diretamente do contrato Soroban on-chain'
-                    : 'Acompanhe seus pagamentos pendentes e concluídos'}
+                    ? 'Data retrieved directly from Soroban on-chain contract'
+                    : 'Track your pending and completed payments'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {installments.map((installment) => (
+                  {displayInstallments.map((installment) => (
                     <div
                       key={installment.number}
                       className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-center space-x-4">
-                        {getStatusIcon(installment.status)}
+                        {getStatusIcon(installment.status as any)}
                         <div>
                           <div className="font-medium text-foreground">
-                            Parcela #{installment.number}
+                            Installment #{installment.number}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            Vencimento: {formatDate(installment.dueDate)}
+                            Due Date: {formatDate(installment.dueDate)}
                           </div>
                           {/* Link on-chain quando parcela foi paga */}
                           {installment.txHash && (
@@ -463,7 +536,7 @@ export function DashboardPage() {
                               className="inline-flex items-center gap-1 mt-1 text-xs text-primary hover:underline"
                             >
                               <ExternalLink className="w-3 h-3" />
-                              Ver tx on-chain
+                              View on-chain tx
                             </a>
                           )}
                         </div>
@@ -472,19 +545,19 @@ export function DashboardPage() {
                       <div className="flex items-center space-x-4">
                         <div className="text-right">
                           <div className="font-semibold text-foreground">
-                            {formatAmount(installment.amount)}
+                            {installment.amount} USDC
                           </div>
                           <Badge
                             variant={installment.status === 'paid' ? 'default' :
-                                    installment.status === 'due' ? 'destructive' : 'secondary'}
+                              installment.status === 'due' ? 'destructive' : 'secondary'}
                             className="text-xs"
                           >
-                            {getStatusText(installment.status)}
+                            {getStatusText(installment.status as any)}
                           </Badge>
                         </div>
 
                         {installment.status === 'due' && (
-                          <Button size="sm">
+                          <Button size="sm" onClick={() => handlePayWithWallet(installment.number)}>
                             Pay Now
                           </Button>
                         )}
@@ -498,6 +571,37 @@ export function DashboardPage() {
 
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
+            {/* Product Purchased Card */}
+            <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white overflow-hidden">
+              <CardContent className="pt-5 pb-4">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0\">
+                    📱
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-white truncate">
+                      {state.product?.name || DEMO_PRODUCT.name}
+                    </p>
+                    <p className="text-xs text-slate-400">256GB • Titanium Black</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
+                  <span className="text-xs text-slate-400">Total value</span>
+                  <span className="font-bold text-white">
+                    BRL {parseFloat(state.product?.price || DEMO_PRODUCT.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                {state.selectedPlan && (
+                  <div className="flex items-center justify-between bg-primary/20 rounded-lg px-3 py-2 mt-2">
+                    <span className="text-xs text-slate-300">Split into</span>
+                    <span className="font-bold text-primary-foreground">
+                      {state.selectedPlan.installmentsCount}x of BRL {parseFloat(state.selectedPlan.installmentAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Stellar Account Info */}
             <Card>
               <CardHeader>
@@ -526,10 +630,44 @@ export function DashboardPage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-medium text-muted-foreground">Balance</label>
-                      <p className="text-lg font-bold text-primary mt-1">
-                        {parseFloat(accountInfo.balance).toFixed(2)} XLM
-                      </p>
+                      <label className="text-xs font-medium text-muted-foreground">Balances</label>
+                      <div className="space-y-2 mt-1">
+                        <div className="flex justify-between items-center bg-muted/50 rounded-lg px-3 py-2">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-bold text-yellow-900">★</span>
+                            </div>
+                            <span className="text-sm font-medium">XLM</span>
+                          </div>
+                          <span className="text-lg font-bold text-primary">
+                            {parseFloat(accountInfo.balance).toFixed(2)}
+                          </span>
+                        </div>
+                        {accountInfo.balances?.filter(b => b.asset_code === 'USDC').map((usdc, idx) => (
+                          <div key={idx} className="flex justify-between items-center bg-muted/50 rounded-lg px-3 py-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                                <span className="text-xs font-bold text-white">$</span>
+                              </div>
+                              <span className="text-sm font-medium">USDC</span>
+                            </div>
+                            <span className="text-lg font-bold text-blue-600">
+                              {parseFloat(usdc.balance).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                        {!accountInfo.balances?.find(b => b.asset_code === 'USDC') && (
+                          <div className="flex justify-between items-center bg-muted/50 rounded-lg px-3 py-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                                <span className="text-xs font-bold text-white">$</span>
+                              </div>
+                              <span className="text-sm font-medium">USDC</span>
+                            </div>
+                            <span className="text-sm text-muted-foreground">No trustline</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <Button
@@ -569,12 +707,12 @@ export function DashboardPage() {
                     <label className="text-xs font-medium text-muted-foreground">Contract ID</label>
                     <p className="font-mono text-xs break-all">{state.contract.id}</p>
                   </div>
-                  
+
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Transaction Hash</label>
                     <p className="font-mono text-xs break-all">{state.contract.stellarTxHash}</p>
                   </div>
-                  
+
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Status</label>
                     <div className="flex items-center mt-1">
@@ -588,40 +726,6 @@ export function DashboardPage() {
               </Card>
             )}
 
-            {/* Rating Card */}
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="flex justify-center mb-3">
-                    {[1,2,3,4,5].map((star) => (
-                      <Star key={star} className="w-5 h-5 text-yellow-500 fill-current" />
-                    ))}
-                  </div>
-                  <h4 className="font-semibold text-foreground mb-2">Love SyloPay?</h4>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Share your experience and help others discover the future of payments.
-                  </p>
-                  <Button variant="outline" size="sm" className="w-full">
-                    Rate Experience
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Support */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Need Help?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Our support team is ready to help with any questions about your BNPL contract.
-                </p>
-                <Button variant="outline" size="sm" className="w-full">
-                  Contact Support
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

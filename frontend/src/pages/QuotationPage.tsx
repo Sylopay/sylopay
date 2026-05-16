@@ -27,7 +27,7 @@ function generateMockQuotation(amount: string, maxInstallments: number): Quotati
       totalAmount: amount,
       frequencyDays: 30,
       interestRate: '2.5', // Mock interest rate
-      description: `${installments}x de ${parseFloat(installmentAmount).toFixed(2)} XLM`
+      description: `${installments}x of ${parseFloat(installmentAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })} BRL`
     });
   }
   
@@ -49,12 +49,12 @@ export function QuotationPage() {
     const fetchQuotation = async () => {
       if (!state.product) return;
 
+      // Declarada aqui para ser acessível tanto no try quanto no catch
+      const poolMaxInstallments = Math.floor(Math.random() * 3) + 2; // Random between 2-4
+      setMaxInstallments(poolMaxInstallments);
+
       try {
         setLoading(true);
-        
-        // Simulate Blend Pool decision on max installments (2-4 randomly)
-        const poolMaxInstallments = Math.floor(Math.random() * 3) + 2; // Random between 2-4
-        setMaxInstallments(poolMaxInstallments);
         
         // Fetch Blend rates for realistic interest display
         const blendRates = await pricingService.getBlendRates();
@@ -100,13 +100,14 @@ export function QuotationPage() {
   };
 
   const formatAmount = (amount: string) => {
-    return `${parseFloat(amount).toFixed(2)} XLM`;
+    const value = parseFloat(amount);
+    return `BRL ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatDate = (daysFromNow: number) => {
     const date = new Date();
     date.setDate(date.getDate() + daysFromNow);
-    return date.toLocaleDateString('pt-BR');
+    return date.toLocaleDateString('en-US');
   };
 
   if (loading) {

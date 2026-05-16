@@ -67,10 +67,19 @@ export interface Product {
 }
 
 // Stellar Account Types
+export interface StellarBalance {
+  asset_type: string;
+  asset_code?: string;
+  asset_issuer?: string;
+  balance: string;
+}
+
 export interface StellarAccount {
   publicKey: string;
   balance: string;
+  balances?: StellarBalance[];
   sequence: string;
+  exists?: boolean;
   explorerUrl: string;
 }
 
@@ -89,8 +98,8 @@ export interface AppState {
 export const DEMO_PRODUCT: Product = {
   id: 'samsung-galaxy-s25-ultra',
   name: 'Samsung Galaxy S25 Ultra 5G',
-  description: 'Samsung Galaxy S25 Ultra 5G Smartphone, 256GB Storage, 12GB RAM, Quad Camera System 200+50+10+50MP, Large 6.9" Display, Titanium Black',
-  price: '1200.0000000',
+  description: 'The most powerful Samsung smartphone. Snapdragon 8 Elite, 200MP AI camera, 6.9" Dynamic AMOLED 2X display, integrated S Pen, 5000mAh battery with 45W charging and IP68 resistance.',
+  price: '19.90',
   image: '/samsung-s25-ultra-main.jpg',
   category: 'Smartphones'
 };
