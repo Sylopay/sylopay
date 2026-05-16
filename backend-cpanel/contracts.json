@@ -949,5 +949,29 @@
         "txHash": null
       }
     ]
+  },
+  {
+    "id": "BNPL-0001",
+    "merchantPublicKey": "GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE",
+    "customerPublicKey": "GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ",
+    "totalAmount": 19.9,
+    "installmentsCount": 2,
+    "installmentAmount": 9.95,
+    "status": "active",
+    "createdAt": "2026-05-16T19:56:34.315Z",
+    "installments": [
+      {
+        "number": 1,
+        "amount": 9.95,
+        "status": "pending",
+        "txHash": null
+      },
+      {
+        "number": 2,
+        "amount": 9.95,
+        "status": "pending",
+        "txHash": null
+      }
+    ]
   }
 ]

@@ -85,6 +85,24 @@ export function QuotationPage() {
     fetchQuotation();
   }, [state.product]);
 
+  useEffect(() => {
+    const calculatePricing = async () => {
+      if (!state.product || !state.selectedPlan) return;
+      
+      try {
+        const pricing = await pricingService.calculateDynamicPricing(
+          parseFloat(state.product.price),
+          state.selectedPlan.installmentsCount
+        );
+        setSelectedPlanPricing(pricing);
+      } catch (error) {
+        console.error('Error calculating pricing:', error);
+      }
+    };
+
+    calculatePricing();
+  }, [state.selectedPlan, state.product]);
+
   const handlePlanSelect = (plan: QuotationOption) => {
     actions.setSelectedPlan(plan);
     // Commented out automatic redirect to allow users to explore fee breakdown
@@ -364,12 +382,33 @@ export function QuotationPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {state.selectedPlan ? (
-                <PricingCalculator
-                  amount={parseFloat(state.product?.price || '0')}
-                  installments={state.selectedPlan.installmentsCount}
-                  onPricingUpdate={(pricing) => setSelectedPlanPricing(pricing)}
-                />
+              {selectedPlanPricing ? (
+                <div className="space-y-4">
+                   {/* Simple breakdown inside the page */}
+                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="p-3 bg-background rounded-lg border">
+                        <p className="text-[10px] text-muted-foreground uppercase">Principal</p>
+                        <p className="text-sm font-bold">{pricingService.formatCurrency(selectedPlanPricing.originalAmount, 'BRL')}</p>
+                      </div>
+                      <div className="p-3 bg-background rounded-lg border">
+                        <p className="text-[10px] text-muted-foreground uppercase">Interest ({selectedPlanPricing.consumerInterestRate.toFixed(1)}%)</p>
+                        <p className="text-sm font-bold text-primary">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.consumerInterestAmount, state.selectedAsset), state.selectedAsset)}</p>
+                      </div>
+                      <div className="p-3 bg-background rounded-lg border">
+                        <p className="text-[10px] text-muted-foreground uppercase">Total ({state.selectedAsset})</p>
+                        <p className="text-sm font-bold text-green-600">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.totalConsumerPayment, state.selectedAsset), state.selectedAsset)}</p>
+                      </div>
+                      <div className="p-3 bg-background rounded-lg border">
+                        <p className="text-[10px] text-muted-foreground uppercase">Blend Savings</p>
+                        <p className="text-sm font-bold text-blue-600">{pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.savings.vsTradionalBNPL, state.selectedAsset), state.selectedAsset)}</p>
+                      </div>
+                   </div>
+                   <PricingCalculator
+                    amount={parseFloat(state.product?.price || '0')}
+                    installments={state.selectedPlan.installmentsCount}
+                    onPricingUpdate={(pricing) => setSelectedPlanPricing(pricing)}
+                  />
+                </div>
               ) : (
                 <Card className="border-dashed border-2 border-muted-foreground/20">
                   <CardContent className="pt-6">

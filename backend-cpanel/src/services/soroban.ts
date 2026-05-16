@@ -273,7 +273,8 @@ export async function prepararTransacaoPagarParcela(
       amount: (parcela.valorUsdc / 10000000).toFixed(7),
     }))
     // Operação 2: Chamada ao contrato Soroban
-    .addOperation(contract.call('pagar_parcela', ...args));
+    .addOperation(contract.call('pagar_parcela', ...args))
+    .setTimeout(60);
 
   // Prepara a transação final com os dados da simulação da simTx
   const finalTx = SorobanRpc.assembleTransaction(finalTxBuilder.build(), simResult).build();
@@ -356,7 +357,7 @@ export async function statusContrato(contratoId: string): Promise<ContratoStatus
         nativeToScVal(contratoId, { type: 'string' })
       )
     )
-    .setTimeout(30)
+    .setTimeout(60)
     .build();
 
   const simResult = await rpc.simulateTransaction(tx);
