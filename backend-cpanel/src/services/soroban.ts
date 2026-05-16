@@ -262,7 +262,7 @@ export async function prepararTransacaoPagarParcela(
 
   // 2. Agora montamos a transação FINAL com AMBAS as operações
   // Usamos os dados da simulação (footprint, etc) para a parte Soroban
-  const finalTxBuilder = new TransactionBuilder(account, {
+  const finalTx = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: getNetworkPassphrase(),
   })
@@ -274,10 +274,9 @@ export async function prepararTransacaoPagarParcela(
     }))
     // Operação 2: Chamada ao contrato Soroban
     .addOperation(contract.call('pagar_parcela', ...args))
-    .setTimeout(60);
-
-  // Prepara a transação final com os dados da simulação da simTx
-  const finalTx = SorobanRpc.assembleTransaction(finalTxBuilder.build(), simResult).build();
+    .setSorobanData(simResult.transactionData!) // <--- IMPORTANTE: Aplica os recursos da simulação
+    .setTimeout(60)
+    .build();
 
   return { xdr: finalTx.toXDR() };
 }

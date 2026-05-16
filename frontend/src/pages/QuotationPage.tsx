@@ -269,27 +269,27 @@ export function QuotationPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center py-6">
-                    <LoadingSpinner size=\"sm\" message=\"Calculating optimized rates...\" />
+                    <LoadingSpinner size="sm" message="Calculating optimized rates..." />
                   </div>
                 )
               ) : (
-                <div className=\"text-center py-6\">
-                  <Calculator className=\"w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-20\" />
-                  <p className=\"text-muted-foreground\">Select a plan to see breakdown</p>
+                <div className="text-center py-6">
+                  <Calculator className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-20" />
+                  <p className="text-muted-foreground">Select a plan to see breakdown</p>
                 </div>
               )}
             </CardContent>
           </Card>
         )}
 
-        <div className=\"mt-8 flex justify-end\">
+        <div className="mt-8 flex justify-end">
           <Button 
-            size=\"lg\" 
+            size="lg" 
             onClick={handleContinue} 
             disabled={!state.selectedPlan} 
-            className=\"w-full md:w-auto h-12 px-8 shadow-md\"
+            className="w-full md:w-auto h-12 px-8 shadow-md"
           >
-            Continue to Agreement <ArrowRight className=\"ml-2 w-4 h-4\" />
+            Continue to Agreement <ArrowRight className="ml-2 w-4 h-4" />
           </Button>
         </div>
       </div>
