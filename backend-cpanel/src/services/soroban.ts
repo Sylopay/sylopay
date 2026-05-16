@@ -8,7 +8,6 @@ import {
   Contract,
   Keypair,
   Networks,
-  SorobanRpc,
   TransactionBuilder,
   BASE_FEE,
   nativeToScVal,
@@ -16,6 +15,7 @@ import {
   xdr,
   Address,
 } from '@stellar/stellar-sdk';
+import * as SorobanRpc from '@stellar/stellar-sdk/rpc';
 
 const CONTRACT_ID      = process.env.SOROBAN_CONTRACT_ID      || '';
 const ADMIN_SECRET     = process.env.SOROBAN_ADMIN_SECRET      || '';
