@@ -115,6 +115,20 @@ export default function DemoWalkthroughPage() {
     setLogs([{ time: '12:00:00', type: 'info', message: 'Demo environment reset. Ready for clean video walk-through.' }]);
   };
 
+  const handleVerifyX402 = async () => {
+    setIsLoading(true);
+    addLog('info', 'Querying Protocol x402 Payment Pointer endpoint...');
+    try {
+      const res = await fetch('/api/x402/payment-pointer');
+      const data = await res.json();
+      addLog('success', `x402 Active! Pointer: ${data.paymentPointer} | Contract: ${data.sorobanContractReceiver.slice(0, 10)}...`);
+    } catch (e) {
+      addLog('error', 'Protocol x402 pointer resolution offline.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Dynamic Walkthrough Header */}
@@ -379,7 +393,7 @@ export default function DemoWalkthroughPage() {
         {/* COLUMN 3: LIVE ARCHITECTURE LOGS & LINKS (4 Cols) */}
         <div className="lg:col-span-4 space-y-6 flex flex-col h-full">
           
-          {/* ANCHOR SCHEMATIC VIEW */}
+           {/* ANCHOR SCHEMATIC VIEW */}
           <Card className="bg-slate-900 border-slate-800 text-slate-100">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
@@ -402,6 +416,26 @@ export default function DemoWalkthroughPage() {
 
               <div className="p-3 bg-indigo-950/20 rounded border border-indigo-900/40 text-[11px] text-indigo-300">
                 Our custom **Etherfuse Sandbox webhook** automates off-chain Pix callbacks and instantly issues corresponding USDC balances onto the user's Stellar wallet.
+              </div>
+
+              {/* Protocol x402 Interoperability Section */}
+              <div className="border-t border-slate-800 pt-3 mt-1">
+                <h4 className="font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                  Protocol x402 Interoperability
+                </h4>
+                <p className="text-[10px] text-slate-400 mb-3">
+                  Allows merchant checkouts to automatically query dynamic payment routing on-chain.
+                </p>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="w-full text-xs border-emerald-500/20 text-emerald-400 hover:bg-emerald-950/20"
+                  onClick={handleVerifyX402}
+                  disabled={isLoading}
+                >
+                  Verify x402 Payment Pointer
+                </Button>
               </div>
             </CardContent>
           </Card>

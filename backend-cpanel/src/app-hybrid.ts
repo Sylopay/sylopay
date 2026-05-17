@@ -62,7 +62,46 @@ app.get('/', (req, res) => {
       stellar: '/api/stellar/health',
       quotation: '/api/quotation',
       contract: '/api/contract',
-      createAccount: '/api/stellar/create-account'
+      createAccount: '/api/stellar/create-account',
+      x402: {
+        paymentPointer: '/api/x402/payment-pointer',
+        invoice: '/api/x402/invoice/:contractId'
+      }
+    }
+  });
+});
+
+// ─── Protocol x402: Interoperable Payment Pointer & Monetization ─────────────────
+app.get('/api/x402/payment-pointer', (req, res) => {
+  res.json({
+    protocol: 'x402',
+    monetizationEnabled: true,
+    paymentPointer: '$stellar.sylopay.com/merchant-vault',
+    supportedAssets: ['USDC', 'XLM'],
+    network: 'stellar-testnet',
+    sorobanContractReceiver: 'CDJFOVTWLKX7EF7VSLRV5MYEHH2HS4T3QG6XKYHHOQXSS66QDNMYHWFG'
+  });
+});
+
+app.get('/api/x402/invoice/:contractId', (req, res) => {
+  const { contractId } = req.params;
+  const contract = contracts.find(c => c.id === contractId);
+  
+  if (!contract) {
+    return res.status(404).json({ error: 'Contract not found for x402 payment request' });
+  }
+
+  res.json({
+    protocol: 'x402',
+    status: 'payment_required',
+    invoiceId: `x402_inv_${contractId}`,
+    amount: contract.installments[0]?.amount || '18.52',
+    asset: 'USDC',
+    destination: contract.merchantPublicKey || 'GB6KJLKUNBSOFCOXHG4HOXRKCEAEKFZUCTMRQSZL3GFK4LFXUFFW4ICJ',
+    sorobanCall: {
+      contract: 'CDJFOVTWLKX7EF7VSLRV5MYEHH2HS4T3QG6XKYHHOQXSS66QDNMYHWFG',
+      function: 'pagar_parcela',
+      params: [contractId, 1]
     }
   });
 });
