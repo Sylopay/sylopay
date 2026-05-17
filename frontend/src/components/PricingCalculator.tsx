@@ -132,19 +132,19 @@ export function PricingCalculator({ amount, installments, onPricingUpdate }: Pri
                   Merchant Fee ({pricingService.formatPercent(pricing.merchantFee)})
                 </span>
                 <span className="font-medium">
-                  {pricingService.formatCrypto(pricing.merchantFeeAmount)}
+                  {pricingService.formatUSDC(pricing.merchantFeeAmount)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Transaction Fee</span>
                 <span className="font-medium">
-                  {pricingService.formatCrypto(pricing.transactionFee)}
+                  {pricingService.formatUSDC(pricing.transactionFee)}
                 </span>
               </div>
               <div className="flex justify-between text-sm font-semibold pt-2 border-t">
                 <span>Total Merchant Cost</span>
                 <span className="text-primary">
-                  {pricingService.formatCrypto(pricing.totalMerchantCost)}
+                  {pricingService.formatUSDC(pricing.totalMerchantCost)}
                 </span>
               </div>
             </div>
@@ -160,7 +160,7 @@ export function PricingCalculator({ amount, installments, onPricingUpdate }: Pri
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Product Amount</span>
                 <span className="font-medium">
-                  {pricingService.formatCrypto(pricing.originalAmount)}
+                  {pricingService.formatUSDC(pricing.originalAmount)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
@@ -168,13 +168,13 @@ export function PricingCalculator({ amount, installments, onPricingUpdate }: Pri
                   Interest ({pricingService.formatPercent(pricing.consumerInterestRate)})
                 </span>
                 <span className="font-medium">
-                  {pricingService.formatCrypto(pricing.consumerInterestAmount)}
+                  {pricingService.formatUSDC(pricing.consumerInterestAmount)}
                 </span>
               </div>
               <div className="flex justify-between text-sm font-semibold pt-2 border-t">
                 <span>Total Consumer Payment</span>
                 <span className="text-green-600">
-                  {pricingService.formatCrypto(pricing.totalConsumerPayment)}
+                  {pricingService.formatUSDC(pricing.totalConsumerPayment)}
                 </span>
               </div>
             </div>
