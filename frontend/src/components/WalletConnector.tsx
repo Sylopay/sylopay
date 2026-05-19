@@ -200,42 +200,7 @@ export default function WalletConnector({
           ))}
         </div>
 
-        {/* Connected wallet info summary */}
-        {selectedPublicKey && (
-          <Card className="bg-green-500/5 border-green-500/20">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center">
-                  <Check className="w-4 h-4 text-green-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-green-600">
-                    Wallet Selected ({selectedWallet})
-                  </p>
-                  <p className="text-xs text-green-600/80 font-mono truncate">
-                    {selectedPublicKey}
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className="border-green-500/30 text-green-600 hover:bg-green-500/10"
-                >
-                  <a
-                    href={`https://stellar.expert/explorer/testnet/account/${selectedPublicKey}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center"
-                  >
-                    <ExternalLink className="w-3 h-3 mr-1" />
-                    View
-                  </a>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+
 
         {isConnecting && (
           <div className="text-center py-4">
