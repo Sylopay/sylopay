@@ -1,12 +1,15 @@
-// This file is not used by "docusaurus start/build" commands.
-// It is here to improve your IDE experience (type-checking, autocompletion...),
-// and can also run the package.json "typecheck" script manually.
 {
-  "extends": "@docusaurus/tsconfig",
   "compilerOptions": {
-    "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
-    "strict": true
+    "target": "es2022",
+    "module": "commonjs",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@site/*": ["./*"]
+    }
   },
-  "exclude": [".docusaurus", "build"]
+  "exclude": [".docusaurus", "build", "node_modules"]
 }
