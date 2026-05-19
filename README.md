@@ -193,7 +193,3 @@ Insira as chaves geradas no arquivo `.env` da raiz do projeto para habilitar as 
 | **Wallet Integration** | `@stellar/freighter-api` (Carteira Freighter) |
 
 ---
-
-## 📄 Licença
-
-MIT © Hackathon Team

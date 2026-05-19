@@ -6,7 +6,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -36,6 +38,16 @@
     "tailwindcss": "^3.4.0",
     "typescript": "^5.2.2",
     "vite": "^5.0.0",
-    "vitest": "^1.1.0"
+    "vitest": "^1.1.0",
+    "storybook": "^10.4.0",
+    "@storybook/react-vite": "^10.4.0",
+    "@chromatic-com/storybook": "^5.2.1",
+    "@storybook/addon-vitest": "^10.4.0",
+    "@storybook/addon-a11y": "^10.4.0",
+    "@storybook/addon-docs": "^10.4.0",
+    "@storybook/addon-mcp": "^0.6.0",
+    "playwright": "^1.60.0",
+    "@vitest/browser": "^1.1.0",
+    "@vitest/coverage-v8": "^1.1.0"
   }
 }
