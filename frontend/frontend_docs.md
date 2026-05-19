@@ -1,6 +1,6 @@
 # SyloPay Frontend — React & Tailwind UI Documentation
 
-This document describes the design, architecture, global state management, and component systems of the **SyloPay Frontend** application.
+This document describes the design, architecture, global state management, and component systems of the **SyloPay Frontend** application, as well as the newly integrated **Docusaurus Specification Portal**.
 
 ---
 
@@ -78,21 +78,21 @@ SyloPay enforces a premium, dark-mode visual theme characterized by high-end typ
 
 ---
 
-## 5. Storybook Setup & Component Isolation
+## 5. Docusaurus Specification Portal
 
-We have successfully integrated **Storybook** in the frontend workspace! Storybook isolated environments let developers build, refine, and unit test UI components without running the backend.
+We have successfully integrated **Docusaurus** as our core developer specification documentation portal! Docusaurus provides a searchable, fast, and modern documentation website complete with interactive diagrams and clean UI.
 
-### 📦 Configured Addons & Libraries:
-*   `@storybook/addon-docs` — Auto-generates clean, searchable component API pages.
-*   `@storybook/addon-a11y` — Interactive accessibility checklist checking contrast ratios.
-*   `@chromatic-com/storybook` — Automated visual testing framework.
+### 📦 Key Portal Features:
+*   **Auto-generated Navigation Sidebars**: Dynamic hierarchy tracking of all specs pages.
+*   **Interactive Mermaid Diagrams**: Real-time rendering of payment gateways and contract operations.
+*   **Dracula Syntax Highlighting**: Premium syntax formatting for Rust, TypeScript, and JSON.
 
-### 🚀 Running Storybook Local Server:
-To run the searchable, interactive Storybook dashboard:
+### 🚀 Running Docusaurus Local Server:
+To run the searchable Docusaurus documentation website locally:
 
 ```bash
-cd frontend
-npm run storybook
+cd docs
+npm start
 ```
 
-This starts the hot-reload dashboard at **`http://localhost:6006`** where you can play with `Button` and `ProgressBar` states dynamically in the browser!
+This starts the developer server at **`http://localhost:3000`** where the specifications can be navigated in a premium interactive interface.

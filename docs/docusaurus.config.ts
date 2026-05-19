@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'SyloPay Spec Portal',
-  tagline: 'Especificações Técnicas de Buy Now, Pay Later na Stellar',
+  tagline: 'Technical Specifications of Buy Now, Pay Later on Stellar',
   favicon: 'img/favicon.ico',
 
   future: {

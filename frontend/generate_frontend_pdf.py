@@ -147,7 +147,7 @@ def build_pdf():
     story = []
 
     story.append(Paragraph("SyloPay Frontend UI Documentation", title_style))
-    story.append(Paragraph("React Single Page Application Components & Storybook Guide", subtitle_style))
+    story.append(Paragraph("React Single Page Application Components & Docusaurus Guide", subtitle_style))
     story.append(Spacer(1, 15))
 
     story.append(Paragraph("1. Architecture & Core Pages", h1_style))
@@ -225,12 +225,12 @@ def build_pdf():
     story.append(Paragraph("• <b>Dark Slate</b>: Off-black gradients (#0A0A0A, #121212) to create glassmorphism panels.", bullet_style))
     story.append(Paragraph("• <b>Text Hierarchy</b>: Off-white high contrast (#F4F4F5) and low contrast muted elements (#71717A).", bullet_style))
 
-    story.append(Paragraph("5. Storybook Setup & Component Isolation", h1_style))
-    story.append(Paragraph("We have successfully integrated Storybook in the frontend workspace! Storybook isolated environments let developers build, refine, and unit test UI components without running the backend.", body_style))
+    story.append(Paragraph("5. Docusaurus Documentation Portal", h1_style))
+    story.append(Paragraph("We have successfully integrated Docusaurus as our core developer specification documentation portal! Docusaurus provides a searchable, fast, and modern documentation website complete with interactive diagrams and clean UI.", body_style))
     story.append(Spacer(1, 5))
     
-    story.append(Paragraph("To run the searchable, interactive Storybook dashboard local server:", body_style))
-    code_sb = "cd frontend\nnpm run storybook"
+    story.append(Paragraph("To run the searchable Docusaurus documentation website locally:", body_style))
+    code_sb = "cd docs\nnpm start"
     t_sb = Table([[Paragraph(code_sb.replace("\n", "<br/>"), code_style)]], colWidths=[504])
     t_sb.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F4F4F5')),

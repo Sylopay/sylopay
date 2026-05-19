@@ -1,195 +1,179 @@
 # SyloPay — BNPL on Stellar
 
-> **Buy Now, Pay Later** descentralizado, construído na blockchain Stellar com Smart Contracts Soroban e rampa Pix Sandbox para o Hackathon.
+> Decentralized **Buy Now, Pay Later** solution built on Stellar with Soroban Smart Contracts, dynamic Docusaurus Specification Portal, and sandbox Pix on-ramp integration.
 
 ---
 
-## 📋 Visão Geral
+## 📋 Overview
 
-O SyloPay é uma plataforma BNPL (Buy Now, Pay Later) que utiliza a blockchain **Stellar** para registro transparente de contratos e processamento de pagamentos parcelados. A aplicação é composta por:
+SyloPay is a Buy Now, Pay Later (BNPL) checkout protocol leveraging the **Stellar** blockchain for transparent installment agreements and cryptographically secure payment execution. The workspace is structured as follows:
 
-- **Frontend** — React + Vite + TypeScript (porta `3001`)
-- **Backend** — Express + TypeScript, em dois modos:
-  - `app-lite.ts` → Dados 100% mockados (sem dependências externas)
-  - `app-hybrid.ts` → Conecta à Stellar Horizon API real e Smart Contracts Soroban (recomendado)
-- **Smart Contracts** — Desenvolvidos em Rust no framework Stellar Soroban SDK.
+- **Frontend** — React + Vite + TypeScript (port `3001`).
+- **Backend** — Express + TypeScript, supporting two operational modes:
+  - `app-lite.ts` → 100% mocked data demo (zero external service dependencies).
+  - `app-hybrid.ts` → Real-world integration with Stellar Horizon nodes, Soroban contracts, and on-chain USDC settlement (recommended).
+- **Smart Contracts** — Modular, comment-free contracts compiled with the Stellar Soroban Rust SDK (`v22`).
 
 ---
 
-## 🗂 Estrutura do Projeto
+## 🗂 Directory Structure
 
 ```
 sylopay/
-├── frontend/                  # React app (Vite + TypeScript + Tailwind)
-│   ├── public/                # Assets públicos (imagens de celulares e o Logo oficial)
+├── docs/                      # Docusaurus Technical Specification Portal (React + TS)
+├── frontend/                  # React Single Page App (Vite + TS + Tailwind)
+│   ├── public/                # Public assets (high-res images and official Logo)
 │   └── src/
 │       ├── pages/             # CheckoutPage, QuotationPage, ContractPage, DashboardPage, etc.
-│       ├── hooks/             # useBNPL (contexto global do fluxo)
-│       └── components/        # Componentes UI e <Logo />
-├── backend-cpanel/            # Backend Express (TypeScript)
+│       ├── hooks/             # useBNPL (global checkout state context)
+│       └── components/        # Shared UI components
+├── backend-cpanel/            # Express Gateway API (TypeScript)
 │   └── src/
-│       ├── app-lite.ts        # Modo demo — tudo mockado
-│       └── app-hybrid.ts      # Modo híbrido — integra com Stellar Testnet e Soroban
+│       ├── app-lite.ts        # Mocked demo mode
+│       ├── app-hybrid.ts      # Hybrid mode (Stellar Horizon + Soroban integration)
+│       └── swagger.ts         # OpenAPI/Swagger specifications
 ├── contracts/
-│   └── sylopay_bnpl/          # Código-fonte do Smart Contract em Rust
+│   └── sylopay_bnpl/          # Soroban Smart Contract source code in Rust
 │       ├── src/
-│       │   ├── lib.rs         # Entrypoint e lógica de implementação #[contractimpl]
-│       │   ├── types.rs       # Tipos, structs e enums #[contracttype]
-│       │   ├── utils.rs       # Funções utilitárias e gerador de IDs
-│       │   └── test.rs        # Testes unitários isolados #[cfg(test)]
-│       └── docs/              # Livro digital interativo mdBook
-├── scripts/                   # Utilitários de automação em linha de comando (JS/Shell)
-│   ├── setup-stellar.js       # Script para gerar keypairs Stellar de teste
-│   ├── register-webhook.js    # Utilitário para registrar webhooks na Etherfuse
-│   └── test-webhook.js        # Simulador de gatilhos de webhook Pix locais
-├── .env.example               # Variáveis de ambiente padrão
-└── package.json               # Scripts globais de desenvolvimento
+│       │   ├── lib.rs         # Implementation entrypoint #[contractimpl]
+│       │   ├── types.rs       # Structs, enums, and keys #[contracttype]
+│       │   ├── utils.rs       # Shared helpers and ID generators
+│       │   └── test.rs        # Isolated unit test suites #[cfg(test)]
+│       └── docs/              # Interactive mdBook digital guide
+├── scripts/                   # CLI DevOps automation utilities (JS/Shell)
+│   ├── setup-stellar.js       # CLI helper to generate Testnet funding keypairs
+│   ├── register-webhook.js    # Utility to register webhooks on Etherfuse sandbox
+│   └── test-webhook.js        # Local Pix payment webhook simulator
+├── .env.example               # Standard environment profiles templates
+└── package.json               # Global workspace development scripts
 ```
 
 ---
 
-## ⚡ Rodando Localmente (Modo Híbrido)
+## ⚡ Running Locally (Hybrid Mode)
 
-Esta é a forma recomendada de executar e validar a aplicação durante o desenvolvimento.
+This is the recommended setup to experience full real-world blockchain execution.
 
-### Pré-requisitos
+### Prerequisites
 *   **Node.js**: `18+`
 *   **npm**: `9+`
 
 ---
 
-### 1. Clone e instale as dependências
+### 1. Clone and Install Dependencies
 
 ```bash
-# Instale as dependências do backend
+# Install backend dependencies
 cd backend-cpanel
 npm install
 
-# Instale as dependências do frontend
+# Install frontend dependencies
 cd ../frontend
 npm install
 ```
 
 ---
 
-### 2. Configure as variáveis de ambiente
+### 2. Configure Environment Variables
 
-Copie o arquivo padrão na raiz do projeto:
+Scaffold a clean configuration profile from the template:
 
 ```bash
-# Na raiz do projeto
+# Run in project root
 cp .env.example .env
 ```
 
-Preencha as chaves secretas no seu arquivo `.env` (como as chaves da Stellar Testnet e sua chave de sandbox da Etherfuse).
+Open the newly created `.env` file and insert the active public/private keys and sandbox credentials.
 
 ---
 
-### 3. Suba o Backend
+### 3. Start the Backend API
 
-Abra um terminal e execute o modo híbrido conectado à Stellar Testnet:
+Launch the hybrid gateway server connected to Stellar Testnet:
 
 ```bash
 cd backend-cpanel
 npm run dev:hybrid
 ```
 
-O servidor iniciará em **http://localhost:3000**.
+The gateway server will spin up at **`http://localhost:3000`**.
 
 ---
 
-### 4. Suba o Frontend
+### 4. Start the Frontend App
 
-Em outro terminal:
+Open another terminal tab and run:
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-O app abrirá automaticamente em **http://localhost:3001**.
+The React app will boot up hot-reloading at **`http://localhost:3001`**.
 
 ---
 
-### 5. Verifique os serviços
+### 5. Verify the Interfaces
 
 ```bash
-# Saúde geral da API
+# General API operational health status
 curl http://localhost:3000/health
 
-# Conexão com a rede Stellar
+# Connected Horizon blockchain node health check
 curl http://localhost:3000/api/stellar/health
 ```
 
 ---
 
-## 📚 Documentação Técnica do Smart Contract
+## 📚 Technical Documentation Portals
 
-Oferecemos uma suíte completa de especificações técnicas para o contrato Soroban do SyloPay localizados em `contracts/sylopay_bnpl/`:
+We offer robust, technical specification materials for the SyloPay ecosystem:
 
-1.  **Livro Interativo (mdBook)**:
-    - Uma documentação digital completa com motor de busca rápida e modo escuro nativo.
-    - Como executar localmente:
-      ```bash
-      cd contracts/sylopay_bnpl/docs
-      ~/.cargo/bin/mdbook serve --open
-      ```
-2.  **Documento PDF Premium**:
-    - **[`sylopay_bnpl_docs.pdf`](contracts/sylopay_bnpl/sylopay_bnpl_docs.pdf)**: Relatório de nível de especificação técnica com matriz de segurança e diagramas estilizados, perfeito para apresentações a investidores.
-3.  **Documento Markdown Padrão**:
-    - **[`sylopay_bnpl_docs.md`](contracts/sylopay_bnpl/sylopay_bnpl_docs.md)**: Ideal para consulta rápida direto no GitHub.
+### 1. Docusaurus Technical Specification Portal (Local Website)
+*   A premium React documentation portal complete with Mermaid diagrams, Dracula syntax highlighting, and interactive sidebars.
+*   To start the Docusaurus server locally:
+    ```bash
+    cd docs
+    npm start
+    ```
+    Open your browser at **`http://localhost:3000`** to browse.
+
+### 2. Interactive Rust mdBook
+*   An official Rust mdBook detailing smart contract internal state storage maps, types, and cargo features.
+*   To serve the book locally:
+    ```bash
+    cd contracts/sylopay_bnpl/docs
+    ~/.cargo/bin/mdbook serve --open
+    ```
+
+### 3. Interactive OpenAPI / Swagger Backend Specifications
+*   The backend gateway exposes an interactive API sandbox to inspect and trigger live calls.
+*   Ensure the backend is running and navigate to: **`http://localhost:3000/api-docs`**.
+
+### 4. Technical PDFs
+*   **[`contracts/sylopay_bnpl/sylopay_bnpl_docs.pdf`](contracts/sylopay_bnpl/sylopay_bnpl_docs.pdf)**: Stellar Smart Contract technical specification PDF.
+*   **[`frontend/frontend_docs.pdf`](frontend/frontend_docs.pdf)**: React UI & Design Tokens technical specification PDF.
 
 ---
 
-## 🔀 Fluxo da Aplicação
+## 🔀 Checkout Operational Pipeline
 
 ```
-[/]           CheckoutPage   → Seleção de produtos de alta tecnologia
-[/quotation]  QuotationPage  → Cotação de parcelas via pools DeFi (Blend)
-[/contract]   ContractPage   → Revisão de parcelas e assinatura de contrato com Freighter
-[/processing] ProcessingPage → Registro on-chain e geração do QR Code Pix sandbox
-[/dashboard]  DashboardPage  → Acompanhamento e quitação das faturas on-chain
+[/]           CheckoutPage   → Catalog items selection
+[/quotation]  QuotationPage  → Installment quotes selection via DeFi (Blend pool APR)
+[/contract]   ContractPage   → XDR Envelope signature using Freighter Wallet
+[/processing] ProcessingPage → On-chain registration and Pix Sandbox QR Code generation
+[/dashboard]  DashboardPage  → USDC fatura settlement and installments tracking
 ```
 
 ---
 
-## 🛠 Scripts do Projeto
+## 🧰 Tech Stack
 
-### Raiz do projeto
-*   `npm run dev:backend` — Inicia o backend (modo lite).
-*   `npm run dev:frontend` — Inicia o servidor frontend.
-
-### `backend-cpanel/`
-*   `npm run dev` — Modo lite com mock de dados.
-*   `npm run dev:hybrid` — Modo híbrido conectado ao Horizon e Soroban.
-*   `npm run build` — Compila TypeScript para produção.
-
-### `frontend/`
-*   `npm run dev` — Servidor hot-reload de desenvolvimento (porta `3001`).
-*   `npm run build` — Compilação estática de produção.
-
----
-
-## 🔑 Contas de Teste Stellar (Testnet)
-
-Para criar contas de teste e obter fundos via Friendbot:
-
-```bash
-node scripts/setup-stellar.js
-```
-
-Insira as chaves geradas no arquivo `.env` da raiz do projeto para habilitar as carteiras master, merchant e customer.
-
----
-
-## 🧰 Stack Tecnológica
-
-| Camada | Tecnologia |
+| Layer | Technologies |
 | :--- | :--- |
 | **Frontend** | React 18, Vite 5, TypeScript 5, Tailwind CSS 3, Radix UI |
-| **Backend** | Node.js, Express 4, TypeScript 5, ts-node, nodemon |
+| **Backend** | Node.js, Express 4, TypeScript 5, ts-node, nodemon, Swagger UI |
 | **Blockchain** | Stellar Testnet (Horizon REST API) |
 | **Smart Contracts** | Soroban Rust SDK (`v22`), Cargo |
-| **Wallet Integration** | `@stellar/freighter-api` (Carteira Freighter) |
-
----
+| **Wallet Integration** | `@stellar/freighter-api` (Freighter Wallet) |
