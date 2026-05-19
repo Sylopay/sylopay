@@ -1,6 +1,6 @@
 # SyloPay — BNPL on Stellar
 
-> **Buy Now, Pay Later** descentralizado, construído na blockchain Stellar para o Hackathon.
+> **Buy Now, Pay Later** descentralizado, construído na blockchain Stellar com Smart Contracts Soroban e rampa Pix Sandbox para o Hackathon.
 
 ---
 
@@ -11,7 +11,8 @@ O SyloPay é uma plataforma BNPL (Buy Now, Pay Later) que utiliza a blockchain *
 - **Frontend** — React + Vite + TypeScript (porta `3001`)
 - **Backend** — Express + TypeScript, em dois modos:
   - `app-lite.ts` → Dados 100% mockados (sem dependências externas)
-  - `app-hybrid.ts` → Conecta à Stellar Horizon API real (recomendado)
+  - `app-hybrid.ts` → Conecta à Stellar Horizon API real e Smart Contracts Soroban (recomendado)
+- **Smart Contracts** — Desenvolvidos em Rust no framework Stellar Soroban SDK.
 
 ---
 
@@ -19,47 +20,47 @@ O SyloPay é uma plataforma BNPL (Buy Now, Pay Later) que utiliza a blockchain *
 
 ```
 sylopay/
-├── frontend/              # React app (Vite + TypeScript + Tailwind)
+├── frontend/                  # React app (Vite + TypeScript + Tailwind)
+│   ├── public/                # Assets públicos (imagens de celulares e o Logo oficial)
 │   └── src/
-│       ├── pages/         # CheckoutPage, QuotationPage, ContractPage,
-│       │                  #   ProcessingPage, DashboardPage
-│       ├── hooks/         # useBNPL (contexto global do fluxo)
-│       ├── components/    # Componentes reutilizáveis
-│       ├── services/      # Chamadas à API
-│       └── types/         # Tipos TypeScript
-├── backend-cpanel/        # Backend Express (TypeScript)
+│       ├── pages/             # CheckoutPage, QuotationPage, ContractPage, DashboardPage, etc.
+│       ├── hooks/             # useBNPL (contexto global do fluxo)
+│       └── components/        # Componentes UI e <Logo />
+├── backend-cpanel/            # Backend Express (TypeScript)
 │   └── src/
-│       ├── app-lite.ts    # Modo demo — tudo mockado
-│       └── app-hybrid.ts  # Modo híbrido — integra com Stellar Testnet
-├── scripts/
-│   └── setup-stellar.js   # Script para gerar keypairs Stellar
-├── docker-compose.yml     # PostgreSQL + Backend + Frontend via Docker
-├── .env.example           # Variáveis de ambiente (raiz)
-└── package.json           # Scripts raiz (setup, dev, build)
+│       ├── app-lite.ts        # Modo demo — tudo mockado
+│       └── app-hybrid.ts      # Modo híbrido — integra com Stellar Testnet e Soroban
+├── contracts/
+│   └── sylopay_bnpl/          # Código-fonte do Smart Contract em Rust
+│       ├── src/
+│       │   ├── lib.rs         # Entrypoint e lógica de implementação #[contractimpl]
+│       │   ├── types.rs       # Tipos, structs e enums #[contracttype]
+│       │   ├── utils.rs       # Funções utilitárias e gerador de IDs
+│       │   └── test.rs        # Testes unitários isolados #[cfg(test)]
+│       └── docs/              # Livro digital interativo mdBook
+├── scripts/                   # Utilitários de automação em linha de comando (JS/Shell)
+│   ├── setup-stellar.js       # Script para gerar keypairs Stellar de teste
+│   ├── register-webhook.js    # Utilitário para registrar webhooks na Etherfuse
+│   └── test-webhook.js        # Simulador de gatilhos de webhook Pix locais
+├── .env.example               # Variáveis de ambiente padrão
+└── package.json               # Scripts globais de desenvolvimento
 ```
 
 ---
 
-## ⚡ Rodando Localmente (modo rápido — sem Docker)
+## ⚡ Rodando Localmente (Modo Híbrido)
 
-Esta é a forma mais simples de subir o projeto durante o desenvolvimento.
+Esta é a forma recomendada de executar e validar a aplicação durante o desenvolvimento.
 
 ### Pré-requisitos
-
-| Ferramenta | Versão mínima |
-|------------|--------------|
-| Node.js    | 18+          |
-| npm        | 9+           |
+*   **Node.js**: `18+`
+*   **npm**: `9+`
 
 ---
 
 ### 1. Clone e instale as dependências
 
 ```bash
-# Clone o repositório
-git clone <url-do-repositorio>
-cd sylopay
-
 # Instale as dependências do backend
 cd backend-cpanel
 npm install
@@ -73,50 +74,27 @@ npm install
 
 ### 2. Configure as variáveis de ambiente
 
-#### Backend (`backend-cpanel/.env`)
-
-Copie o exemplo e ajuste conforme necessário:
+Copie o arquivo padrão na raiz do projeto:
 
 ```bash
-cd backend-cpanel
+# Na raiz do projeto
 cp .env.example .env
 ```
 
-Conteúdo do `.env`:
-
-```env
-NODE_ENV=development
-PORT=3000
-STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
-STELLAR_NETWORK=TESTNET
-FRONTEND_URL=http://localhost:3001
-```
-
-#### Frontend
-
-O frontend já está configurado via `vite.config.ts` para fazer proxy das chamadas `/api` para `http://localhost:3000`. **Nenhuma configuração extra é necessária.**
+Preencha as chaves secretas no seu arquivo `.env` (como as chaves da Stellar Testnet e sua chave de sandbox da Etherfuse).
 
 ---
 
 ### 3. Suba o Backend
 
-Abra um terminal e execute **um** dos modos abaixo:
-
-#### Modo Híbrido *(recomendado — conecta à Stellar Testnet)*
+Abra um terminal e execute o modo híbrido conectado à Stellar Testnet:
 
 ```bash
 cd backend-cpanel
 npm run dev:hybrid
 ```
 
-#### Modo Lite *(100% mockado — sem internet necessária)*
-
-```bash
-cd backend-cpanel
-npm run dev
-```
-
-O servidor sobe em **http://localhost:3000**.
+O servidor iniciará em **http://localhost:3000**.
 
 ---
 
@@ -129,7 +107,7 @@ cd frontend
 npm run dev
 ```
 
-O app abre em **http://localhost:3001**.
+O app abrirá automaticamente em **http://localhost:3001**.
 
 ---
 
@@ -143,169 +121,76 @@ curl http://localhost:3000/health
 curl http://localhost:3000/api/stellar/health
 ```
 
-Resposta esperada (modo híbrido):
-
-```json
-{
-  "connected": true,
-  "network": "TESTNET",
-  "latestLedger": 12345678,
-  "horizonUrl": "https://horizon-testnet.stellar.org"
-}
-```
-
 ---
 
-## 🐳 Rodando com Docker Compose *(opcional)*
+## 📚 Documentação Técnica do Smart Contract
 
-> Requer Docker e Docker Compose instalados.
+Oferecemos uma suíte completa de especificações técnicas para o contrato Soroban do SyloPay localizados em `contracts/sylopay_bnpl/`:
 
-```bash
-# Na raiz do projeto
-docker-compose up -d
-```
-
-Serviços disponíveis:
-
-| Serviço    | URL                   |
-|------------|-----------------------|
-| Frontend   | http://localhost:3001 |
-| Backend    | http://localhost:3000 |
-| PostgreSQL | localhost:5432        |
-
-Para derrubar tudo:
-
-```bash
-docker-compose down -v
-```
+1.  **Livro Interativo (mdBook)**:
+    - Uma documentação digital completa com motor de busca rápida e modo escuro nativo.
+    - Como executar localmente:
+      ```bash
+      cd contracts/sylopay_bnpl/docs
+      ~/.cargo/bin/mdbook serve --open
+      ```
+2.  **Documento PDF Premium**:
+    - **[`sylopay_bnpl_docs.pdf`](contracts/sylopay_bnpl/sylopay_bnpl_docs.pdf)**: Relatório de nível de especificação técnica com matriz de segurança e diagramas estilizados, perfeito para apresentações a investidores.
+3.  **Documento Markdown Padrão**:
+    - **[`sylopay_bnpl_docs.md`](contracts/sylopay_bnpl/sylopay_bnpl_docs.md)**: Ideal para consulta rápida direto no GitHub.
 
 ---
 
 ## 🔀 Fluxo da Aplicação
 
 ```
-[/]           CheckoutPage   → Dados do produto e cliente
-[/quotation]  QuotationPage  → Escolha do número de parcelas
-[/contract]   ContractPage   → Revisão e assinatura do contrato
-[/processing] ProcessingPage → Registro na blockchain Stellar
-[/dashboard]  DashboardPage  → Acompanhamento das parcelas
+[/]           CheckoutPage   → Seleção de produtos de alta tecnologia
+[/quotation]  QuotationPage  → Cotação de parcelas via pools DeFi (Blend)
+[/contract]   ContractPage   → Revisão de parcelas e assinatura de contrato com Freighter
+[/processing] ProcessingPage → Registro on-chain e geração do QR Code Pix sandbox
+[/dashboard]  DashboardPage  → Acompanhamento e quitação das faturas on-chain
 ```
 
-O estado global do fluxo é gerenciado pelo hook `useBNPL` (React Context).
-
 ---
 
-## 🌐 Endpoints da API
-
-| Método | Endpoint                              | Descrição                          |
-|--------|---------------------------------------|------------------------------------|
-| GET    | `/health`                             | Health check da API                |
-| GET    | `/api/stellar/health`                 | Status da conexão com Stellar      |
-| POST   | `/api/stellar/create-account`         | Cria/simula uma conta Stellar      |
-| GET    | `/api/stellar/account/:publicKey`     | Info da conta na Stellar           |
-| POST   | `/api/quotation`                      | Gera opções de parcelamento        |
-| POST   | `/api/contract`                       | Cria um contrato BNPL              |
-| GET    | `/api/contract/:id`                   | Busca contrato por ID              |
-| GET    | `/api/contracts`                      | Lista todos os contratos           |
-| POST   | `/api/stellar/process-payment`        | Processa pagamento de uma parcela  |
-| GET    | `/api/stellar/transactions/:accountId`| Histórico de transações            |
-
----
-
-## 🛠 Scripts Disponíveis
+## 🛠 Scripts do Projeto
 
 ### Raiz do projeto
-
-```bash
-npm run dev:backend   # Sobe o backend (modo lite)
-npm run dev:frontend  # Sobe o frontend
-```
+*   `npm run dev:backend` — Inicia o backend (modo lite).
+*   `npm run dev:frontend` — Inicia o servidor frontend.
 
 ### `backend-cpanel/`
-
-```bash
-npm run dev          # Modo lite (dados mockados)
-npm run dev:hybrid   # Modo híbrido (Stellar Testnet real)
-npm run build        # Compila TypeScript para dist/
-npm start            # Executa o build compilado
-```
+*   `npm run dev` — Modo lite com mock de dados.
+*   `npm run dev:hybrid` — Modo híbrido conectado ao Horizon e Soroban.
+*   `npm run build` — Compila TypeScript para produção.
 
 ### `frontend/`
-
-```bash
-npm run dev      # Servidor de desenvolvimento (porta 3001)
-npm run build    # Build de produção
-npm run preview  # Preview do build de produção
-```
+*   `npm run dev` — Servidor hot-reload de desenvolvimento (porta `3001`).
+*   `npm run build` — Compilação estática de produção.
 
 ---
 
-## 🔑 Gerando Keypairs Stellar (Testnet)
+## 🔑 Contas de Teste Stellar (Testnet)
 
-Para criar contas de teste na rede Stellar Testnet:
+Para criar contas de teste e obter fundos via Friendbot:
 
 ```bash
-# Na raiz do projeto
 node scripts/setup-stellar.js
 ```
 
-As chaves geradas devem ser adicionadas ao arquivo `.env` (raiz):
-
-```env
-STELLAR_MASTER_PUBLIC=G...
-STELLAR_MASTER_SECRET=S...
-STELLAR_MERCHANT_PUBLIC=G...
-STELLAR_MERCHANT_SECRET=S...
-STELLAR_CUSTOMER_PUBLIC=G...
-STELLAR_CUSTOMER_SECRET=S...
-```
-
-> ⚠️ **Nunca commite chaves reais.** O `.gitignore` já exclui arquivos `.env`.
+Insira as chaves geradas no arquivo `.env` da raiz do projeto para habilitar as carteiras master, merchant e customer.
 
 ---
 
 ## 🧰 Stack Tecnológica
 
-| Camada     | Tecnologia                                                  |
-|------------|-------------------------------------------------------------|
-| Frontend   | React 18, Vite 5, TypeScript 5, Tailwind CSS 3, Radix UI    |
-| Backend    | Node.js, Express 4, TypeScript 5, ts-node, nodemon          |
-| Blockchain | Stellar Testnet (Horizon REST API)                          |
-| Wallet     | Stellar Freighter API                                       |
-| Docker     | PostgreSQL 15, Docker Compose                               |
-
----
-
-## ❓ Solução de Problemas
-
-### Porta já em uso
-
-```bash
-# Verifica o que está usando a porta 3000
-lsof -i :3000
-# ou
-fuser -k 3000/tcp
-```
-
-### Erro de CORS no frontend
-
-Confirme que o backend está rodando em `http://localhost:3000`. O proxy do Vite (`vite.config.ts`) redireciona automaticamente as chamadas `/api` para lá.
-
-### `ts-node` ou `nodemon` não encontrado
-
-```bash
-cd backend-cpanel
-npm install
-```
-
-### Stellar Testnet indisponível
-
-Troque para o modo lite enquanto a rede estiver fora:
-
-```bash
-cd backend-cpanel
-npm run dev   # app-lite.ts — sem dependência de rede
-```
+| Camada | Tecnologia |
+| :--- | :--- |
+| **Frontend** | React 18, Vite 5, TypeScript 5, Tailwind CSS 3, Radix UI |
+| **Backend** | Node.js, Express 4, TypeScript 5, ts-node, nodemon |
+| **Blockchain** | Stellar Testnet (Horizon REST API) |
+| **Smart Contracts** | Soroban Rust SDK (`v22`), Cargo |
+| **Wallet Integration** | `@stellar/freighter-api` (Carteira Freighter) |
 
 ---
 
