@@ -1,0 +1,30 @@
+---
+sidebar_position: 1
+---
+
+# SyloPay Spec Portal
+
+Welcome to the **SyloPay Technical Specification Portal**. 
+
+This portal contains the complete specifications, architecture flows, design system details, and blockchain logic for the SyloPay Buy Now, Pay Later ecosystem.
+
+```mermaid
+graph TD
+    Cliente[Navegador / Freighter] -->|1. Solicita Cotação| API[Express API Gateway]
+    API -->|2. Consulta Taxas| Blend[(Pools do Blend Protocol)]
+    Cliente -->|3. Assina XDR do Contrato| Soroban[(Contrato Soroban Rust)]
+    Cliente -->|4. Entrada via Pix em BRL| Etherfuse[Âncora Pix Etherfuse]
+    Etherfuse -->|5. Swap para USDC & Webhook| API
+    API -->|6. Invoca pagar_parcela| Soroban
+    Soroban -->|7. Emite Recibo On-chain| Cliente
+```
+
+---
+
+## 🗺️ Explore the Technical Specs
+
+Use the left sidebar navigation menu to browse:
+
+*   **[Stellar Smart Contracts](./smart_contracts.md)**: Specifications of the modular Rust-based Soroban smart contracts.
+*   **[Frontend UI Components](./frontend_ui.md)**: Deep dive into the React pages, global states (`useBNPL`), and Amber design systems.
+*   **[General Architecture](./architecture.md)**: High-level overview of the DeFi rates, anchors, and double-entry on-chain storage.
