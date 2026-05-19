@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://sylopay-api.vercel.app/api/:path*"
+      "destination": "https://backend-cpanel.vercel.app/api/:path*"
     },
     {
       "source": "/webhook/:path*",
-      "destination": "https://sylopay-api.vercel.app/webhook/:path*"
+      "destination": "https://backend-cpanel.vercel.app/webhook/:path*"
     },
     {
       "source": "/(.*)",
