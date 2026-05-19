@@ -1,27 +1,26 @@
 /**
  * ProcessingPage.tsx
- * Fase 3: Integração real com Etherfuse (on-ramp Pix) + Soroban (contrato on-chain)
+ * Phase 3: Real integration with Etherfuse (on-ramp Pix) + Soroban (on-chain contract)
  */
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CheckCircle, ExternalLink, AlertCircle, Clock, Zap, Shield,
-  CreditCard, ArrowRight, Wallet, Link2
+  CheckCircle, ExternalLink, AlertCircle, Zap, Shield,
+  CreditCard, Link2, Building2, Coins, ScrollText
 } from 'lucide-react';
 import { useBNPL } from '../hooks/useBNPL';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { Progress } from '../components/ui/progress';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Logo from '../components/Logo';
 import { PixPayment } from '../components/PixPayment';
 import { DEMO_MERCHANT } from '../types';
 import { signTransaction } from '@stellar/freighter-api';
 import pricingService from '../services/pricingService';
+import { Badge } from '../components/ui/badge';
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ProcessingStep {
   id: string;
@@ -40,7 +39,7 @@ interface PixData {
   quoteId: string;
 }
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export function ProcessingPage() {
   const { state, actions } = useBNPL();
@@ -62,13 +61,13 @@ export function ProcessingPage() {
     {
       id: 'pix',
       title: 'Generating Pix key',
-      description: 'Preparing payment order via Etherfuse',
+      description: 'Preparing payment order via Etherfuse API',
       status: 'pending',
     },
     {
       id: 'payment',
-      title: 'Awaiting payment',
-      description: 'Pix confirmation → USDC issued to Stellar wallet',
+      title: 'Awaiting payment routing',
+      description: 'BRL → TESOURO (Etherfuse) → USDC',
       status: 'pending',
     },
     {
@@ -86,7 +85,7 @@ export function ProcessingPage() {
   const [sorobanContractId, setSorobanContractId] = useState<string | undefined>();
   const [sorobanTxHash, setSorobanTxHash] = useState<string | undefined>();
 
-  // ─── Utilitários ─────────────────────────────────────────────────────────────
+  // ─── Utilities ─────────────────────────────────────────────────────────────
 
   const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -96,7 +95,7 @@ export function ProcessingPage() {
     );
   };
 
-  // ─── Fluxo principal ─────────────────────────────────────────────────────────
+  // ─── Main Flow ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (started) return;
@@ -112,11 +111,11 @@ export function ProcessingPage() {
       }
 
       try {
-        // ── Step 1: Validação ──────────────────────────────────────────────────
-        await delay(800);
+        // ── Step 1: Validation ──────────────────────────────────────────────────
+        await delay(2000);
         updateStep('validation', { status: 'completed' });
 
-        // ── Step 2: Criar contrato Soroban on-chain ────────────────────────────
+        // ── Step 2: Create Soroban on-chain contract ────────────────────────────
         updateStep('soroban', { status: 'processing' });
 
         const totalUsdc = pricingService.convertToAsset(
@@ -124,7 +123,6 @@ export function ProcessingPage() {
           'USDC'
         );
 
-        // 1. Prepara a transação (XDR)
         const prepareRes = await fetch('/api/soroban/prepare-contract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -137,20 +135,18 @@ export function ProcessingPage() {
         });
 
         if (!prepareRes.ok) {
-          throw new Error('Falha ao preparar contrato na rede');
+          throw new Error('Failed to prepare contract on network');
         }
 
         const { xdr } = await prepareRes.json();
 
-        // 2. Assina via Freighter (Isso vai abrir o popup da carteira!)
         let signedXdr;
         try {
           signedXdr = await signTransaction(xdr, { networkPassphrase: 'Test SDF Network ; September 2015' });
         } catch (err) {
-          throw new Error('Assinatura da carteira cancelada ou falhou');
+          throw new Error('Wallet signature cancelled or failed');
         }
 
-        // 3. Submete a transação assinada
         const submitRes = await fetch('/api/soroban/submit-contract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -165,7 +161,7 @@ export function ProcessingPage() {
 
         if (!submitRes.ok) {
           const errData = await submitRes.json();
-          throw new Error(`Falha ao submeter contrato: ${errData.error || submitRes.status}`);
+          throw new Error(`Failed to submit contract: ${errData.error || submitRes.status}`);
         }
 
         const sorobanData = await submitRes.json();
@@ -178,7 +174,6 @@ export function ProcessingPage() {
           explorerUrl: sorobanData.explorerUrl,
         });
 
-        // Atualiza o contrato no estado global com dados on-chain
         actions.setContract({
           id: sorobanData.contratoId,
           stellarTxHash: sorobanData.txHash,
@@ -186,18 +181,21 @@ export function ProcessingPage() {
           status: 'active',
         });
 
-        await delay(600);
+        await delay(1500);
 
-        // ── Step 3: Gerar quote + order Pix ───────────────────────────────────
+        // ── Step 3: Generate Pix quote + order (Etherfuse) ───────────────────────
         updateStep('pix', { status: 'processing' });
 
-        const installmentAmountBRL = parseFloat(state.selectedPlan.installmentAmount);
+        // CÁLCULO EXATO DO PIX (USDC -> BRL)
+        const EXCHANGE_RATE = 5.20;
+        const installmentAmountUSDC = parseFloat(state.selectedPlan.installmentAmount);
+        const calculatedAmountBRL = installmentAmountUSDC * EXCHANGE_RATE;
 
         const quoteRes = await fetch('/api/etherfuse/quote-onramp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            amount_brl: installmentAmountBRL.toString(),
+            amount_brl: calculatedAmountBRL.toFixed(2), // Enviando o valor calculado em BRL
             wallet_address: state.customer.stellarPublicKey,
           }),
         });
@@ -208,10 +206,8 @@ export function ProcessingPage() {
           try {
             const errorBody = JSON.parse(errorText);
             backendErrorDetail = errorBody.message || errorBody.error || errorText;
-          } catch (e) {
-            // Mantém o texto original se não for JSON
-          }
-          throw new Error(`Falha ao criar quote Etherfuse (500): ${backendErrorDetail}`);
+          } catch (e) {}
+          throw new Error(`Failed to create Etherfuse quote: ${backendErrorDetail}`);
         }
 
         const quoteData = await quoteRes.json();
@@ -224,21 +220,19 @@ export function ProcessingPage() {
         });
 
         if (!orderRes.ok) {
-          throw new Error(`Falha ao criar order Etherfuse: ${orderRes.status}`);
+          throw new Error(`Failed to create Etherfuse order: ${orderRes.status}`);
         }
 
         const orderData = await orderRes.json();
         const order = orderData.order;
         const pix = order?.paymentInstructions;
 
-        // Monta dados Pix — usa fallback quando sandbox não retorna chave real
         const pixKey = pix?.pixKey || quoteId || `pix_${order?.id || Date.now()}`;
-        const expiresAt = pix?.expiresAt
-          || new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 min fallback
+        const expiresAt = pix?.expiresAt || new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
         setPixData({
           pixKey,
-          amountBRL: pix?.amount || installmentAmountBRL,
+          amountBRL: calculatedAmountBRL, // Forçando o UI a renderizar o nosso cálculo real
           expiresAt,
           orderId: order?.id || quoteId,
           quoteId,
@@ -246,14 +240,12 @@ export function ProcessingPage() {
 
         updateStep('pix', { status: 'completed' });
         updateStep('payment', { status: 'processing' });
-
-        // Exibe o componente Pix
         setShowPix(true);
 
       } catch (error) {
         console.error('[ProcessingPage] Error:', error);
         actions.setError(
-          error instanceof Error ? error.message : 'Erro ao processar pagamento'
+          error instanceof Error ? error.message : 'Processing error occurred'
         );
         setSteps(prev =>
           prev.map(s => (s.status === 'processing' ? { ...s, status: 'error' } : s))
@@ -264,14 +256,13 @@ export function ProcessingPage() {
     run();
   }, []);
 
-  // ─── Callback quando Pix confirmado ──────────────────────────────────────────
+  // ─── Payment Callbacks ──────────────────────────────────────────────────
 
   const handlePixConfirmed = async (txHash?: string) => {
     updateStep('payment', { status: 'completed', txHash });
     updateStep('completion', { status: 'processing' });
 
     try {
-      // Notifica o backend para finalizar o pagamento da 1a parcela on-chain
       if (sorobanContractId) {
         await fetch('/api/soroban/confirm-first-payment', {
           method: 'POST',
@@ -283,27 +274,26 @@ export function ProcessingPage() {
         });
       }
     } catch (err) {
-      console.warn('[ProcessingPage] Falha ao confirmar on-chain, mas Pix foi pago:', err);
+      console.warn('[ProcessingPage] Failed to confirm on-chain, but Pix was paid:', err);
     }
 
     await delay(1000);
     updateStep('completion', { status: 'completed' });
 
-    // Aguarda 2s para o usuário ver o sucesso e redireciona
     setTimeout(() => {
       actions.nextStep();
       navigate('/dashboard');
     }, 2000);
   };
 
-  // ─── Helpers de UI ────────────────────────────────────────────────────────────
+  // ─── UI Helpers ────────────────────────────────────────────────────────────
 
   const getStepIcon = (step: ProcessingStep) => {
     switch (step.status) {
-      case 'completed': return <CheckCircle className="w-6 h-6 text-green-600" />;
+      case 'completed': return <CheckCircle className="w-5 h-5 text-green-500" />;
       case 'processing': return <LoadingSpinner size="sm" />;
-      case 'error': return <AlertCircle className="w-6 h-6 text-destructive" />;
-      default: return <div className="w-6 h-6 border-2 border-muted rounded-full" />;
+      case 'error': return <AlertCircle className="w-5 h-5 text-red-500" />;
+      default: return <div className="w-5 h-5 border-2 border-zinc-700 rounded-full" />;
     }
   };
 
@@ -315,77 +305,73 @@ export function ProcessingPage() {
   // ─── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/40 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="min-h-screen bg-[#0a0a0a] text-zinc-200">
+      <header className="border-b border-zinc-800/60 bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center h-16">
+          <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <Logo size="md" className="animate-pulse" />
-              <h1 className="text-lg font-semibold">Processing Payment</h1>
+              <Logo size="md" className="animate-pulse text-orange-500" />
+              <h1 className="text-sm font-medium text-zinc-100">Processing Payment</h1>
             </div>
+            <div className="w-8"></div> {/* Spacer for alignment */}
           </div>
         </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Progress bar */}
         <div className="mb-8">
-          <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+          <div className="flex items-center justify-between text-[11px] text-zinc-500 mb-2 uppercase tracking-wider font-semibold">
             <span>Step 4 of 5</span>
             <span>{progressPct.toFixed(0)}% Complete</span>
           </div>
-          <Progress value={progressPct} className="h-2" />
+          <div className="h-1 bg-zinc-800/80 rounded-full overflow-hidden">
+            <div className="h-full bg-orange-600 rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Etapas + Pix */}
+          
+          {/* Main Processing Area */}
           <div className="lg:col-span-2 space-y-6">
-
-            {/* Steps */}
-            <Card>
+            <Card className="bg-[#121212] border-zinc-800/80">
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Zap className="w-5 h-5 mr-2 text-primary" />
+                <CardTitle className="flex items-center text-zinc-100">
+                  <Zap className="w-5 h-5 mr-2 text-orange-500" />
                   BNPL Contract Processing
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-zinc-400">
                   Contract created on-chain via Soroban · Payment via Pix (Etherfuse)
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 {steps.map((step) => (
                   <div
                     key={step.id}
                     className={`
-                      flex items-start space-x-4 p-4 rounded-lg transition-all
-                      ${step.status === 'processing' ? 'bg-primary/5 border border-primary/20' : ''}
-                      ${step.status === 'error' ? 'bg-destructive/5 border border-destructive/20' : ''}
-                      ${step.status === 'completed' ? 'bg-green-500/5 border border-green-500/20' : ''}
-                      ${step.status === 'pending' ? 'opacity-50' : ''}
+                      flex items-center space-x-4 p-3 rounded-lg transition-all border
+                      ${step.status === 'processing' ? 'bg-[#14100c] border-orange-600/30' : 'bg-transparent border-transparent'}
+                      ${step.status === 'error' ? 'bg-red-950/20 border-red-900/30' : ''}
+                      ${step.status === 'completed' ? 'bg-green-950/10 border-green-900/20' : ''}
+                      ${step.status === 'pending' ? 'opacity-40' : ''}
                     `}
                   >
-                    <div className="flex-shrink-0 mt-1">{getStepIcon(step)}</div>
+                    <div className="flex-shrink-0">{getStepIcon(step)}</div>
                     <div className="flex-1 min-w-0">
-                      <h3 className={`text-base font-semibold ${step.status === 'completed' ? 'text-green-600' :
-                          step.status === 'processing' ? 'text-primary' :
-                            step.status === 'error' ? 'text-destructive' :
-                              'text-muted-foreground'
+                      <h3 className={`text-sm font-semibold ${step.status === 'completed' ? 'text-green-500' :
+                          step.status === 'processing' ? 'text-orange-500' :
+                            step.status === 'error' ? 'text-red-400' :
+                              'text-zinc-400'
                         }`}>
                         {step.title}
                       </h3>
-                      <p className="text-sm mt-1 text-muted-foreground">{step.description}</p>
+                      <p className="text-xs text-zinc-500 mt-0.5">{step.description}</p>
 
-                      {/* Link para explorer quando há txHash */}
                       {step.status === 'completed' && step.txHash && (
                         <a
-                          href={
-                            step.explorerUrl ||
-                            `https://stellar.expert/explorer/testnet/tx/${step.txHash}`
-                          }
+                          href={step.explorerUrl || `https://stellar.expert/explorer/testnet/tx/${step.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
+                          className="inline-flex items-center gap-1 mt-1.5 text-[10px] text-orange-500/80 hover:text-orange-400 hover:underline"
                         >
                           <ExternalLink className="w-3 h-3" />
                           View on Stellar Explorer
@@ -397,64 +383,52 @@ export function ProcessingPage() {
               </CardContent>
             </Card>
 
-            {/* Componente Pix */}
             {showPix && pixData && !allCompleted && !hasError && (
-              <PixPayment
-                pixKey={pixData.pixKey}
-                amountBRL={pixData.amountBRL}
-                expiresAt={pixData.expiresAt}
-                orderId={pixData.orderId}
-                onConfirmed={handlePixConfirmed}
-                onExpired={() => actions.setError('Chave Pix expirou. Tente novamente.')}
-              />
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <PixPayment
+                  pixKey={pixData.pixKey}
+                  amountBRL={pixData.amountBRL}
+                  expiresAt={pixData.expiresAt}
+                  orderId={pixData.orderId}
+                  onConfirmed={handlePixConfirmed}
+                  onExpired={() => actions.setError('Pix Key Expired. Try again.')}
+                />
+              </div>
             )}
 
-            {/* Sucesso */}
             {allCompleted && (
-              <Card className="border-green-500/20 bg-green-500/5">
+              <Card className="border-green-500/30 bg-green-500/10">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-3">
-                    <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
+                    <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0" />
                     <div>
-                      <h3 className="text-lg font-semibold text-green-700">
+                      <h3 className="text-base font-semibold text-green-400">
                         BNPL Contract created successfully!
                       </h3>
-                      <p className="text-green-600/80 text-sm mt-1">
+                      <p className="text-green-500/70 text-xs mt-1">
                         Your contract is registered on Stellar. Redirecting to dashboard...
                       </p>
-                      {sorobanContractId && (
-                        <a
-                          href="https://stellar.expert/explorer/testnet/contract/CDJFOVTWLKX7EF7VSLRV5MYEHH2HS4T3QG6XKYHHOQXSS66QDNMYHWFG"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 mt-3 text-xs text-green-700 underline"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          View on-chain contract
-                        </a>
-                      )}
                     </div>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Erro */}
             {hasError && (
-              <Card className="border-destructive/20 bg-destructive/5">
+              <Card className="border-red-900/40 bg-[#1a0a0a]">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-3">
-                    <AlertCircle className="w-6 h-6 text-destructive flex-shrink-0" />
+                    <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
                     <div>
-                      <h3 className="text-lg font-semibold text-destructive">Processing error</h3>
-                      <p className="text-destructive/80 text-sm mt-1">
+                      <h3 className="text-base font-semibold text-red-400">Processing error</h3>
+                      <p className="text-red-400/80 text-xs mt-1">
                         {state.error || 'An error occurred. Please try again.'}
                       </p>
                       <div className="flex gap-3 mt-4">
-                        <Button variant="outline" size="sm" onClick={actions.prevStep}>
+                        <Button variant="outline" size="sm" onClick={actions.prevStep} className="border-zinc-700 hover:bg-zinc-800 text-zinc-300">
                           Back
                         </Button>
-                        <Button size="sm" onClick={() => window.location.reload()}>
+                        <Button size="sm" onClick={() => window.location.reload()} className="bg-red-600 hover:bg-red-700 text-white">
                           Try Again
                         </Button>
                       </div>
@@ -465,38 +439,98 @@ export function ProcessingPage() {
             )}
           </div>
 
-          {/* Sidebar */}
+          {/* SIDEBAR */}
           <div className="lg:col-span-1 space-y-6">
+            
+            {/* Transparency Panel: What happens to the Pix? */}
+            <Card className="bg-gradient-to-b from-[#121212] to-[#0a0a0a] border-zinc-800/80 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-5">
+                <Shield className="w-24 h-24 text-zinc-100" />
+              </div>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center text-zinc-200">
+                  <Shield className="w-4 h-4 mr-2 text-indigo-400" />
+                  How your payment works
+                </CardTitle>
+                <CardDescription className="text-xs text-zinc-400">
+                  We use blockchain for maximum security and transparency. Here is the path of your money:
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4 pb-5 space-y-0">
+                
+                {/* Flow UI */}
+                <div className="flex flex-col relative z-10">
+                  <div className="flex items-start gap-3 pb-4">
+                    <div className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center flex-shrink-0 z-10">
+                      <Zap className="w-3.5 h-3.5 text-zinc-400" />
+                    </div>
+                    <div className="pt-1.5">
+                      <p className="text-xs font-medium text-zinc-300">You pay via standard Pix in BRL</p>
+                    </div>
+                  </div>
+                  
+                  <div className="absolute left-[15px] top-[30px] bottom-[30px] w-0.5 bg-zinc-800 z-0"></div>
 
-            {/* Contrato on-chain */}
+                  <div className="flex items-start gap-3 pb-4">
+                    <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center flex-shrink-0 z-10">
+                      <Building2 className="w-3.5 h-3.5 text-indigo-400" />
+                    </div>
+                    <div className="pt-1.5">
+                      <p className="text-xs font-medium text-zinc-300">Etherfuse (Regulated Anchor) converts to Digital Asset</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 pb-4">
+                    <div className="w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center flex-shrink-0 z-10">
+                      <Coins className="w-3.5 h-3.5 text-blue-400" />
+                    </div>
+                    <div className="pt-1.5">
+                      <p className="text-xs font-medium text-zinc-300">Swapped to USDC on Stellar Network</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-orange-500/10 border border-orange-500/30 flex items-center justify-center flex-shrink-0 z-10">
+                      <ScrollText className="w-3.5 h-3.5 text-orange-400" />
+                    </div>
+                    <div className="pt-1.5">
+                      <p className="text-xs font-medium text-zinc-300">Locked securely in Soroban Smart Contract</p>
+                    </div>
+                  </div>
+                </div>
+
+              </CardContent>
+            </Card>
+
+            {/* On-Chain Contract Summary */}
             {sorobanContractId && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center">
-                    <Link2 className="w-4 h-4 mr-2" />
+              <Card className="bg-[#121212] border-zinc-800/80">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center text-zinc-200">
+                    <Link2 className="w-4 h-4 mr-2 text-orange-500" />
                     On-chain Contract
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground">Contract ID</label>
-                    <p className="font-mono text-xs break-all mt-1 bg-muted p-2 rounded">
+                    <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Contract ID</label>
+                    <p className="font-mono text-xs break-all mt-1 bg-[#0a0a0a] border border-zinc-800 p-2 rounded text-zinc-300">
                       {sorobanContractId}
                     </p>
                   </div>
                   {sorobanTxHash && (
                     <div>
-                      <label className="text-xs font-medium text-muted-foreground">TX Hash</label>
-                      <p className="font-mono text-xs break-all mt-1 text-primary">
+                      <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">TX Hash</label>
+                      <p className="font-mono text-xs break-all mt-1 text-orange-400/80">
                         {sorobanTxHash.slice(0, 20)}...
                       </p>
                     </div>
                   )}
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground">Network</label>
+                    <label className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">Network</label>
                     <div className="flex items-center mt-1 gap-2">
-                      <Badge variant="secondary" className="text-xs">Stellar Testnet</Badge>
-                      <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-700">
+                      <Badge variant="outline" className="text-[10px] border-zinc-700 text-zinc-400">Stellar Testnet</Badge>
+                      <Badge variant="outline" className="text-[10px] border-purple-500/30 bg-purple-500/10 text-purple-400">
                         Soroban
                       </Badge>
                     </div>
@@ -505,56 +539,33 @@ export function ProcessingPage() {
               </Card>
             )}
 
-            {/* Resumo do pedido */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center">
-                  <CreditCard className="w-4 h-4 mr-2" />
+            <Card className="bg-[#121212] border-zinc-800/80">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center text-zinc-200">
+                  <CreditCard className="w-4 h-4 mr-2 text-zinc-400" />
                   Order Summary
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
+              <CardContent className="space-y-3 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Product:</span>
-                  <span className="font-medium text-right max-w-[120px] truncate">
-                    {state.product?.name}
-                  </span>
+                  <span className="text-zinc-500">Product:</span>
+                  <span className="font-medium text-zinc-300 text-right max-w-[120px] truncate">{state.product?.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total:</span>
-                  <span className="font-medium">
-                    {state.selectedPlan
-                      ? `${parseFloat(state.selectedPlan.totalAmount).toFixed(2)} USDC`
-                      : '—'}
-                  </span>
+                  <span className="text-zinc-500">Total:</span>
+                  <span className="font-medium text-zinc-300">{state.selectedPlan ? `${parseFloat(state.selectedPlan.totalAmount).toFixed(2)} USDC` : '—'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Installments:</span>
-                  <span className="font-medium">
-                    {state.selectedPlan?.installmentsCount}x
-                  </span>
+                  <span className="text-zinc-500">Installments:</span>
+                  <span className="font-medium text-zinc-300">{state.selectedPlan?.installmentsCount}x</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Each installment:</span>
-                  <span className="font-medium">
-                    {state.selectedPlan
-                      ? `${parseFloat(state.selectedPlan.installmentAmount).toFixed(2)} USDC`
-                      : '—'}
-                  </span>
+                  <span className="text-zinc-500">Each installment:</span>
+                  <span className="font-medium text-zinc-300">{state.selectedPlan ? `${parseFloat(state.selectedPlan.installmentAmount).toFixed(2)} USDC` : '—'}</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Badge de segurança */}
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="pt-6 text-center">
-                <Shield className="w-8 h-8 text-primary mx-auto mb-3" />
-                <h4 className="font-semibold text-primary mb-1">Secured by Stellar</h4>
-                <p className="text-xs text-muted-foreground">
-                  Immutable contract registered on-chain. Payment via Etherfuse (regulated).
-                </p>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>

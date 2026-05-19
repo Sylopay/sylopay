@@ -472,6 +472,9 @@ app.post('/api/etherfuse/quote-onramp', async (req, res) => {
   }
 });
 
+// Memory store to simulate organic payment states for Sandbox/Demo orders
+const sandboxOrdersMap = new Map<string, { createdAt: number }>();
+
 // POST /api/etherfuse/order
 // Cria uma ordem de pagamento (retorna chave Pix) com fallback para Sandbox
 app.post('/api/etherfuse/order', async (req, res) => {
@@ -487,8 +490,9 @@ app.post('/api/etherfuse/order', async (req, res) => {
     console.warn('[Route] /api/etherfuse/order — Sandbox fallback enabled:',
       error instanceof Error ? error.message : error);
 
+    const orderId = `sandbox-order-${Date.now()}`;
     const sandboxOrder = {
-      id: `sandbox-order-${Date.now()}`,
+      id: orderId,
       quoteId,
       status: 'created',
       paymentInstructions: {
@@ -502,6 +506,9 @@ app.post('/api/etherfuse/order', async (req, res) => {
       updatedAt: new Date().toISOString(),
     };
 
+    // Store sandbox order creation timestamp
+    sandboxOrdersMap.set(orderId, { createdAt: Date.now() });
+
     res.json({ success: true, order: sandboxOrder, sandbox: true });
   }
 });
@@ -511,13 +518,27 @@ app.post('/api/etherfuse/order', async (req, res) => {
 app.get('/api/etherfuse/order/:orderId', async (req, res) => {
   const { orderId } = req.params;
 
-  // Ordens geradas pelo fallback de Sandbox retornam "completed" diretamente
+  // Ordens geradas pelo fallback de Sandbox retornam status progressivos
   if (orderId.startsWith('sandbox-order-')) {
+    const cached = sandboxOrdersMap.get(orderId);
+    let status: 'created' | 'pending' | 'completed' = 'completed';
+
+    if (cached) {
+      const elapsed = Date.now() - cached.createdAt;
+      if (elapsed < 6000) {
+        status = 'created'; // Waiting for payment
+      } else if (elapsed < 14000) {
+        status = 'pending'; // Payment detected — awaiting settlement
+      } else {
+        status = 'completed'; // Payment confirmed!
+      }
+    }
+
     return res.json({
       success: true,
       order: {
         id: orderId,
-        status: 'completed',
+        status,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },

@@ -24,7 +24,7 @@ export function LegalModal({ title, open, onOpenChange, children }: LegalModalPr
         <DialogHeader>
           <DialogTitle className="text-2xl">{title}</DialogTitle>
           <DialogDescription>
-            Last Updated: September 15, 2025
+            Last Updated: May 19, 2026
           </DialogDescription>
         </DialogHeader>
 

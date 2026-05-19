@@ -155,8 +155,8 @@ export function CheckoutPage() {
                   </span>
                 </div>
                 <Badge variant="outline" className="text-muted-foreground">
-                  ≈ ${(parseFloat(product.price) / 5.7).toLocaleString('en-US', { maximumFractionDigits: 0 })} USD
-                </Badge>
+  ≈ ${(parseFloat(product.price) / 5.7).toLocaleString('en-US', { maximumFractionDigits: 0 })} USD
+</Badge>
               </div>
 
               {/* Rating */}
