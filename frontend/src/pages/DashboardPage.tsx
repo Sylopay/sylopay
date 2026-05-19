@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { DEMO_PRODUCT } from '../types';
 import {
   ExternalLink, Calendar, DollarSign, CheckCircle, Clock, RefreshCw,
@@ -23,11 +23,10 @@ interface InstallmentSchedule {
   dueDate: string;
   status: 'pending' | 'due' | 'paid' | 'overdue';
   paidDate?: string;
-  txHash?: string;        // ← on-chain
-  explorerUrl?: string;   // ← link Stellar Explorer
+  txHash?: string;
+  explorerUrl?: string;
 }
 
-// Dados reais vindos do contrato Soroban
 interface SorobanContrato {
   id: string;
   status: string;
@@ -54,28 +53,32 @@ export function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
 
+  // ── Ref para evitar loop: sorobanContrato como dep do useCallback ──────────
+  const sorobanContratoRef = useRef<SorobanContrato | null>(null);
+  useEffect(() => {
+    sorobanContratoRef.current = sorobanContrato;
+  }, [sorobanContrato]);
+
   const handleNewPurchase = () => navigate('/');
 
   // ── Busca TODOS os contratos do cliente ────────────────────────────────────
+  // CORREÇÃO: removido `sorobanContrato` das deps — usa ref em vez disso
   const fetchAllContracts = useCallback(async () => {
     if (!state.customer?.stellarPublicKey) return;
     try {
       const res = await fetch(`/api/soroban/contracts/cliente/${state.customer.stellarPublicKey}`);
       if (!res.ok) return;
       const json = await res.json();
-      if (json.success && Array.isArray(json.contracts)) {
-        // Se houver contratos, define o primeiro (ou o selecionado) como o atual para exibir detalhes
-        if (json.contracts.length > 0) {
-          // Atualiza o contrato selecionado ou pega o primeiro
-          const currentId = sorobanContrato?.id || state.contract?.id || json.contracts[0].id;
-          const updated = json.contracts.find((c: any) => c.id === currentId) || json.contracts[0];
-          setSorobanContrato(updated);
-        }
+      if (json.success && Array.isArray(json.contracts) && json.contracts.length > 0) {
+        const currentId = sorobanContratoRef.current?.id || state.contract?.id || json.contracts[0].id;
+        const updated = json.contracts.find((c: any) => c.id === currentId) || json.contracts[0];
+        setSorobanContrato(updated);
       }
     } catch (err) {
       console.warn('[Dashboard] Erro ao buscar lista de contratos:', err);
     }
-  }, [state.customer?.stellarPublicKey, sorobanContrato, state.contract?.id]);
+  }, [state.customer?.stellarPublicKey, state.contract?.id]);
+  // ^^^ sorobanContrato removido das deps — loop eliminado
 
   // ── Carregamento inicial e Polling ──────────────────────────────────────────
   useEffect(() => {
@@ -84,13 +87,11 @@ export function DashboardPage() {
 
       try {
         setLoading(true);
-        // Conta Stellar Real - Wrap in try/catch to not block contracts if account doesn't exist yet
         try {
           const account = await apiService.getStellarAccount(state.customer.stellarPublicKey);
           setAccountInfo(account);
         } catch (accountError) {
           console.warn('[Dashboard] Stellar account not found or not funded yet:', accountError);
-          // Set a minimal account info state so the UI doesn't crash
           setAccountInfo({
             publicKey: state.customer.stellarPublicKey,
             balance: '0',
@@ -109,82 +110,87 @@ export function DashboardPage() {
 
     fetchDashboardData();
 
-    // Polling a cada 3 segundos para detectar pagamentos via webhook/pix
+    // CORREÇÃO: intervalo aumentado de 3s para 10s
     const interval = setInterval(() => {
       fetchAllContracts();
-    }, 3000);
+    }, 10_000);
 
     return () => clearInterval(interval);
   }, [state.customer?.stellarPublicKey, fetchAllContracts]);
 
-  // ── Refresh manual ──────────────────────────────────────────────────────────
+  // ── Pagamento via wallet ────────────────────────────────────────────────────
   const handlePayWithWallet = async (numeroParcela: number) => {
-    if (!state.customer?.stellarPublicKey) {
-      alert('Please connect your wallet first.');
-      return;
-    }
+  if (!state.customer?.stellarPublicKey || !sorobanContrato) return;
 
-    if (!sorobanContrato) {
-      alert('On-chain contract not yet found. Please wait a few seconds for synchronization or refresh the page.');
-      return;
-    }
+  try {
+    setRefreshing(true);
 
-    try {
-      setRefreshing(true);
-      console.log(`[Dashboard] Preparing on-chain payment for installment #${numeroParcela}...`);
-      
-      // 1. Prepara XDR
-      const res = await fetch('/api/soroban/prepare-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contratoId: sorobanContrato.id,
-          numeroParcela,
-          clientePublicKey: state.customer.stellarPublicKey,
-        }),
-      });
+    // 1. Prepara os dois XDRs
+    const res = await fetch('/api/soroban/prepare-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contratoId: sorobanContrato.id,
+        numeroParcela,
+        clientePublicKey: state.customer.stellarPublicKey,
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    const { xdrPayment, xdrSoroban } = await res.json();
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error preparing payment');
-      }
-      
-      const { xdr } = await res.json();
+    const PASSPHRASE = 'Test SDF Network ; September 2015';
 
-      // 2. Signed via Freighter
-      console.log('[Dashboard] Requesting signature via Freighter...');
-      const signedXdr = await signTransaction(xdr, { 
-        networkPassphrase: 'Test SDF Network ; September 2015' 
-      });
+    // 2. Assina TX1 (payment USDC)
+    console.log('[Dashboard] Assinando pagamento USDC...');
+    const sig1 = await signTransaction(xdrPayment, { networkPassphrase: PASSPHRASE }) as any;
+    const signedPayment = typeof sig1 === 'string' ? sig1 : sig1.signedTxXdr;
+    if (!signedPayment) throw new Error('Falha ao assinar TX de pagamento');
 
-      // 3. Submit signed transaction
-      console.log('[Dashboard] Submitting signed transaction to network...');
-      const subRes = await fetch('/api/soroban/submit-transaction', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signedXdr }),
-      });
+    // 3. Submete TX1
+    console.log('[Dashboard] Submetendo pagamento USDC...');
+    const sub1 = await fetch('/api/stellar/submit-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signedXdr: signedPayment }),
+    });
+    const res1 = await sub1.json();
+    if (!sub1.ok || !res1.success) {
+  console.error('[Dashboard] Resposta completa TX1:', res1);
+  throw new Error('Falha no pagamento USDC: ' + (res1.error || JSON.stringify(res1)));
+}
+    console.log('[Dashboard] ✅ USDC transferido. TX:', res1.txHash);
 
-      const subResult = await subRes.json();
+    // 4. Assina TX2 (Soroban)
+    console.log('[Dashboard] Assinando atualização on-chain...');
+    const sig2 = await signTransaction(xdrSoroban, { networkPassphrase: PASSPHRASE }) as any;
+    const signedSoroban = typeof sig2 === 'string' ? sig2 : sig2.signedTxXdr;
+    if (!signedSoroban) throw new Error('Falha ao assinar TX Soroban');
 
-      if (subRes.ok && subResult.success) {
-        alert('✅ On-chain payment successful! The status will update shortly.');
-        await handleRefresh();
-      } else {
-        throw new Error(subResult.error || 'Transaction failed on network');
-      }
-    } catch (err) {
-      console.error('[Dashboard] Error during wallet payment:', err);
-      alert('❌ Payment failed: ' + (err instanceof Error ? err.message : 'Check your wallet connection'));
-    } finally {
-      setRefreshing(false);
-    }
-  };
+    // 5. Submete TX2
+    console.log('[Dashboard] Submetendo atualização on-chain...');
+    const sub2 = await fetch('/api/soroban/submit-transaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signedXdr: signedSoroban }),
+    });
+    const res2 = await sub2.json();
+    if (!sub2.ok || !res2.success) throw new Error('Falha ao atualizar contrato: ' + res2.error);
+
+    alert('✅ Pagamento realizado! USDC transferido e parcela atualizada on-chain.');
+    await handleRefresh();
+  } catch (err) {
+    console.error('[Dashboard] Erro:', err);
+    alert('❌ Payment failed: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
+  } finally {
+    setRefreshing(false);
+  }
+};
+
+
 
   const handleFundAccount = async () => {
     try {
       setRefreshing(true);
-      // We'll use the same public key but ask the backend to fund it via Friendbot
       const res = await fetch('/api/stellar/create-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -242,27 +248,19 @@ export function DashboardPage() {
 
   const getStatusText = (status: InstallmentSchedule['status']) => {
     switch (status) {
-      case 'paid':
-        return 'Paid';
-      case 'due':
-        return 'Due';
-      case 'overdue':
-        return 'Overdue';
-      default:
-        return 'Pending';
+      case 'paid': return 'Paid';
+      case 'due': return 'Due';
+      case 'overdue': return 'Overdue';
+      default: return 'Pending';
     }
   };
 
   const getStatusColor = (status: InstallmentSchedule['status']) => {
     switch (status) {
-      case 'paid':
-        return 'text-success-600 bg-success-100';
-      case 'due':
-        return 'text-warning-600 bg-warning-100';
-      case 'overdue':
-        return 'text-error-600 bg-error-100';
-      default:
-        return 'text-gray-600 bg-gray-100';
+      case 'paid': return 'text-success-600 bg-success-100';
+      case 'due': return 'text-warning-600 bg-warning-100';
+      case 'overdue': return 'text-error-600 bg-error-100';
+      default: return 'text-gray-600 bg-gray-100';
     }
   };
 
@@ -280,7 +278,7 @@ export function DashboardPage() {
     if (sorobanContrato) {
       return sorobanContrato.parcelas.map(p => ({
         number: p.numero,
-        amount: (p.valorUsdc / 10000000).toFixed(2), // USDC scale adjustment
+        amount: (p.valorUsdc / 10000000).toFixed(2),
         dueDate: p.vencimento ? new Date(p.vencimento * 1000).toISOString() : new Date().toISOString(),
         status: p.status === 'Paid' ? 'paid' : 'due',
         txHash: p.txHash,
@@ -288,7 +286,6 @@ export function DashboardPage() {
       }));
     }
 
-    // Fallback to mock installments based on selected plan if not yet on-chain
     if (state.selectedPlan) {
       return Array.from({ length: state.selectedPlan.installmentsCount }, (_, i) => ({
         number: i + 1,
@@ -347,7 +344,6 @@ export function DashboardPage() {
                 New Purchase
               </Button>
             </div>
-
           </div>
         </div>
       </header>
@@ -562,7 +558,6 @@ export function DashboardPage() {
                           <div className="text-sm text-muted-foreground">
                             Due Date: {formatDate(installment.dueDate)}
                           </div>
-                          {/* Link on-chain quando parcela foi paga */}
                           {installment.txHash && (
                             <a
                               href={installment.explorerUrl}
@@ -610,7 +605,7 @@ export function DashboardPage() {
             <Card className="bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700 text-white overflow-hidden">
               <CardContent className="pt-5 pb-4">
                 <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0\">
+                  <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
                     📱
                   </div>
                   <div className="flex-1 min-w-0">
@@ -703,7 +698,7 @@ export function DashboardPage() {
                               </div>
                               <span className="text-sm text-muted-foreground">No trustline</span>
                             </div>
-                            
+
                             {!accountInfo.exists && (
                               <div className="bg-warning-50 border border-warning-200 rounded-lg p-3">
                                 <div className="flex items-center gap-2 text-warning-700 text-xs font-semibold mb-2">
@@ -713,8 +708,8 @@ export function DashboardPage() {
                                 <p className="text-[10px] text-warning-600 mb-3">
                                   Your account needs to be funded with XLM to perform on-chain payments.
                                 </p>
-                                <Button 
-                                  size="sm" 
+                                <Button
+                                  size="sm"
                                   className="w-full h-8 text-xs bg-warning-600 hover:bg-warning-700"
                                   onClick={handleFundAccount}
                                   disabled={refreshing}
@@ -783,7 +778,6 @@ export function DashboardPage() {
                 </CardContent>
               </Card>
             )}
-
           </div>
         </div>
       </div>

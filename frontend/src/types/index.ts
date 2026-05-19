@@ -62,6 +62,7 @@ export interface Product {
   name: string;
   description: string;
   price: string;
+  displayPrice?: string;
   image: string;
   category: string;
 }
@@ -99,19 +100,20 @@ export interface AppState {
 export const DEMO_PRODUCT: Product = {
   id: 'samsung-galaxy-s25-ultra',
   name: 'Samsung Galaxy S25 Ultra 5G',
-  description: 'The most powerful Samsung smartphone. Snapdragon 8 Elite, 200MP AI camera, 6.9" Dynamic AMOLED 2X display, integrated S Pen, 5000mAh battery with 45W charging and IP68 resistance.',
-  price: '19.90',
+  description: 'The most powerful Samsung smartphone...',
+  price: '19.90',        // ← valor real usado no contrato (USDC demo)
+  displayPrice: '8799.00', // ← valor exibido ao usuário (BRL real)
   image: '/samsung-s25-ultra-main.jpg',
   category: 'Smartphones'
 };
 
 export const DEMO_MERCHANT = {
   name: 'TechStore Demo',
-  publicKey: 'GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE'
+  publicKey: 'GD56ZNTTYAOKCBPRAGYI4OIEB44UTVVTOIW6TLVRMXIF7DP66E6WXUUV'
 };
 
 export const DEMO_CUSTOMER = {
-  stellarPublicKey: 'GA57YQCS5NV4TXQPXR6DIKDYTQCMODQ3HNFKJZOULEE7M74SZ6RAIVLA',
+  stellarPublicKey: 'GBEZLV6PNNASOMQX6DUU67RH4VGJIM224PVPU36JNBATM773DXMVCYGV',
   email: 'demo@hackathon.stellar',
   fullName: 'Demo Customer',
   phone: '+55 11 99999-9999',

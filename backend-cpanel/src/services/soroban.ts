@@ -216,6 +216,7 @@ export async function pagarParcela(
   return { txHash: result.txHash };
 }
 
+
 /**
  * Prepara o XDR para o usuário pagar uma parcela on-chain via Freighter
  */
@@ -223,63 +224,73 @@ export async function prepararTransacaoPagarParcela(
   contratoId: string,
   numeroParcela: number,
   clientePublicKey: string
-): Promise<{ xdr: string }> {
+): Promise<{ xdrPayment: string; xdrSoroban: string }> {
   const rpc = getRpc();
   const contract = new Contract(getContractId());
-  const account = await rpc.getAccount(clientePublicKey);
 
-  // 1. Busca detalhes do contrato para saber valor e merchant
+  // Busca info do contrato para saber merchant e valor
   const info = await statusContrato(contratoId);
   const parcela = info.parcelas.find(p => p.numero === numeroParcela);
+  console.log('[Soroban] Merchant do contrato:', info.merchant);
+  console.log('[Soroban] Valor parcela (stroops):', parcela?.valorUsdc);
   if (!parcela) throw new Error('Parcela nao encontrada');
 
-  // Configuração do Asset USDC (Testnet)
-  const USDC_ASSET = new Asset(
-    'USDC',
-    'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
-  );
+  const USDC_ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+  const USDC_ASSET = new Asset('USDC', USDC_ISSUER);
+  const amountUsdc = (parcela.valorUsdc / 10_000_000).toFixed(7);
+
+  // Busca conta uma vez — sequence number fresco
+  const account = await rpc.getAccount(clientePublicKey);
+
+  // ── TX 1: pagamento clássico USDC ──────────────────────────────────────────
+  const paymentTx = new TransactionBuilder(account, {
+    fee: '100000',
+    networkPassphrase: getNetworkPassphrase(),
+  })
+    .addOperation(Operation.payment({
+      destination: info.merchant,
+      asset: USDC_ASSET,
+      amount: amountUsdc,
+    }))
+    .setTimeout(60)
+    .build();
+
+  // ── TX 2: chamada Soroban (sequence = account.sequence + 2) ────────────────
+  // Incrementa manualmente o sequence para a segunda tx
+  const account2 = await rpc.getAccount(clientePublicKey);
+  // Força sequence number = sequence da tx1 + 1
+  (account2 as any).incrementSequenceNumber();
 
   const args = [
     nativeToScVal(contratoId, { type: 'string' }),
     nativeToScVal(numeroParcela, { type: 'u32' }),
-    nativeToScVal('', { type: 'string' }), // Sem hash externo (pagamento direto)
+    nativeToScVal('', { type: 'string' }),
   ];
 
-  // 1. Cria uma transação TEMPORÁRIA apenas com a parte Soroban para simulação
-  // Isso é necessário porque o RPC de simulação as vezes falha com múltiplas ops mistas
-  const simTx = new TransactionBuilder(account, {
-    fee: BASE_FEE,
+  const sorobanTx = new TransactionBuilder(account2, {
+    fee: '1000000',
     networkPassphrase: getNetworkPassphrase(),
   })
     .addOperation(contract.call('pagar_parcela', ...args))
     .setTimeout(60)
     .build();
 
-  const simResult = await rpc.simulateTransaction(simTx);
+  const simResult = await rpc.simulateTransaction(sorobanTx);
   if (SorobanRpc.Api.isSimulationError(simResult)) {
     throw new Error(`Simulação falhou: ${simResult.error}`);
   }
 
-  // 2. Agora montamos a transação FINAL com AMBAS as operações
-  // Usamos os dados da simulação (footprint, etc) para a parte Soroban
-  const finalTx = new TransactionBuilder(account, {
-    fee: BASE_FEE,
-    networkPassphrase: getNetworkPassphrase(),
-  })
-    // Operação 1: Pagamento clássico de USDC
-    .addOperation(Operation.payment({
-      destination: info.merchant,
-      asset: USDC_ASSET,
-      amount: (parcela.valorUsdc / 10000000).toFixed(7),
-    }))
-    // Operação 2: Chamada ao contrato Soroban
-    .addOperation(contract.call('pagar_parcela', ...args))
-    .setSorobanData(simResult.transactionData!) // <--- IMPORTANTE: Aplica os recursos da simulação
-    .setTimeout(60)
-    .build();
+  const preparedSorobanTx = SorobanRpc.assembleTransaction(sorobanTx, simResult).build();
 
-  return { xdr: finalTx.toXDR() };
+  
+
+  return {
+    xdrPayment: paymentTx.toXDR(),
+    xdrSoroban: preparedSorobanTx.toXDR(),
+  };
 }
+
+
 
 /**
  * Finaliza o pagamento de uma parcela (assinado pelo Orchestrator)

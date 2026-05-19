@@ -19,6 +19,7 @@ import Logo from '../components/Logo';
 import { PixPayment } from '../components/PixPayment';
 import { DEMO_MERCHANT } from '../types';
 import { signTransaction } from '@stellar/freighter-api';
+import pricingService from '../services/pricingService';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -117,8 +118,11 @@ export function ProcessingPage() {
 
         // ── Step 2: Criar contrato Soroban on-chain ────────────────────────────
         updateStep('soroban', { status: 'processing' });
-        
-        const totalUsdc = parseFloat(state.selectedPlan.totalAmount);
+
+        const totalUsdc = pricingService.convertToAsset(
+          parseFloat(state.selectedPlan.totalAmount),
+          'USDC'
+        );
 
         // 1. Prepara a transação (XDR)
         const prepareRes = await fetch('/api/soroban/prepare-contract', {

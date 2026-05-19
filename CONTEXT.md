@@ -1,262 +1,77 @@
-# SyloPay — Contexto do Projeto para IAs
+# SyloPay — System Context & Architecture
 
-> Use este arquivo para dar contexto completo a qualquer IA sobre o estado atual do projeto.
-> Atualizado em: Maio 2026
-
----
-
-## O que é o SyloPay
-
-Plataforma **BNPL (Buy Now, Pay Later) descentralizada** construída na blockchain **Stellar**.
-- E-commerces oferecem parcelamento e recebem o valor integral na hora
-- Consumidores parcelam sem cartão de crédito
-- Toda a infraestrutura roda on-chain via **Soroban (contratos em Rust)**
-
-**Contexto:** Projeto desenvolvido durante o Bootcamp Data · Stellar (Sprint 1, Maio 2026).
+SyloPay is a next-generation decentralized Buy Now, Pay Later (BNPL) platform built on the **Stellar Blockchain** and **Soroban Smart Contracts**. It provides consumers with dynamic-rate installment plans settled in USDC and BRL (via simulated Pix on-ramp/off-ramp anchors).
 
 ---
 
-## Stack Tecnológica
+## 🏗 System Architecture Flow
 
-| Camada | Tecnologia |
-|--------|-----------|
-| Frontend | React 18 + Vite 5 + TypeScript + Tailwind CSS + Radix UI |
-| Backend | Node.js + Express 4 + TypeScript (`backend-cpanel/`) |
-| Blockchain | Stellar Testnet (Soroban) |
-| Smart Contract | **Rust** via `soroban-sdk v22` |
-| Stablecoin | USDC (Circle) |
-| On-ramp/Off-ramp | **Etherfuse FX API** (Sandbox) |
-| Wallet | Stellar Freighter API |
+The diagram below outlines the interactions between the client wallet, backend gateway, local state, and the Stellar Testnet ledger.
 
----
-
-## Estrutura de Diretórios
-
-```
-sylopay/
-├── frontend/                    # React app (porta 3001)
-│   └── src/
-│       ├── pages/               # CheckoutPage, QuotationPage, ContractPage,
-│       │                        # ProcessingPage, DashboardPage
-│       ├── hooks/useBNPL.tsx    # Contexto global do fluxo (React Context + useReducer)
-│       ├── services/
-│       │   ├── api.ts           # Chamadas REST ao backend
-│       │   └── pricingService.ts # Modelo de precificação (Blend rates mockados)
-│       └── types/index.ts       # Tipos TypeScript
-│
-├── backend-cpanel/              # Backend Express (porta 3000)
-│   └── src/
-│       ├── app-hybrid.ts        # Servidor principal (usar este para dev)
-│       ├── app-lite.ts          # Versão 100% mockada (sem internet)
-│       ├── services/
-│       │   ├── etherfuse.ts     # ✅ NOVO — On-ramp/Off-ramp via Etherfuse API
-│       │   └── soroban.ts       # ✅ NOVO — Invoca contrato Rust via stellar-sdk JS
-│       └── middleware/
-│           └── webhookVerify.ts # ✅ NOVO — Validação HMAC webhooks Etherfuse
-│
-├── contracts/
-│   └── sylopay_bnpl/            # ✅ NOVO — Smart Contract em Rust (Soroban)
-│       ├── Cargo.toml
-│       └── src/lib.rs
-│
-└── scripts/
-    └── setup-stellar.js         # Gera keypairs Stellar
+```mermaid
+graph TD
+    Client[Client Browser / Freighter] -->|1. Request Quote| API[Express API Gateway]
+    API -->|2. Query Rates| Blend[(Blend Protocol Pools)]
+    Client -->|3. Sign Contract XDR| Soroban[(Soroban Smart Contract)]
+    Client -->|4. Downpayment in BRL| Etherfuse[Etherfuse Pix Anchor]
+    Etherfuse -->|5. Swap to USDC & Webhook| API
+    API -->|6. Call pagar_parcela| Soroban
+    Soroban -->|7. Emit On-chain Receipt| Client
 ```
 
 ---
 
-## Fluxo do Usuário (5 passos)
+## 🗂 Core Component Breakdown
 
-```
-/ (CheckoutPage)       → Produto + botão "Pay with SyloPay"
-/quotation             → Escolhe número de parcelas (2x, 3x, 4x)
-/contract              → Revisa e assina o contrato
-/processing            → Pagamento Pix → registro on-chain Soroban
-/dashboard             → Acompanha parcelas em tempo real
-```
+### 1. Frontend (`/frontend`)
+A premium, highly-responsive Single Page Application (SPA) built using **React + Vite + TypeScript** and styled with **TailwindCSS** and **shadcn/ui**.
 
-O estado global é gerenciado pelo hook `useBNPL` (React Context + useReducer).
-
----
-
-## Smart Contract Soroban (Rust) — DEPLOYADO
-
-**Contract ID (Testnet):**
-```
-CDJFOVTWLKX7EF7VSLRV5MYEHH2HS4T3QG6XKYHHOQXSS66QDNMYHWFG
-```
-
-**Explorer:**
-https://stellar.expert/explorer/testnet/contract/CDJFOVTWLKX7EF7VSLRV5MYEHH2HS4T3QG6XKYHHOQXSS66QDNMYHWFG
-
-**Funções exportadas:**
-
-| Função | Quem chama | O que faz |
-|--------|-----------|-----------|
-| `initialize(admin)` | Admin (1x) | Inicializa o contrato |
-| `criar_contrato(merchant, cliente, valor_total, num_parcelas)` | Backend | Cria contrato BNPL on-chain |
-| `pagar_parcela(contrato_id, numero, tx_hash)` | Backend (webhook) | Registra pagamento de parcela |
-| `status_contrato(contrato_id)` | Frontend/Backend | Lê estado do contrato (readonly) |
-| `listar_contratos_cliente(cliente)` | Dashboard | Lista contratos de um endereço |
-| `marcar_inadimplente(contrato_id)` | Admin | Marca contrato como inadimplente |
-| `total_contratos()` | Qualquer | Contador de contratos criados |
-| `obter_admin()` | Qualquer | Retorna endereço do admin |
-
-**Eventos emitidos:**
-- `BNPL_NEW` — ao criar contrato
-- `BNPL_PAY` — ao pagar parcela
-- `BNPL_DONE` — ao concluir todos os pagamentos
-- `BNPL_DEF` — ao marcar inadimplente
-
-**Build:**
-```bash
-cd contracts/sylopay_bnpl
-stellar contract build
-# → target/wasm32v1-none/release/sylopay_bnpl.wasm (11.5KB)
-```
+*   **Dynamic Checkout Pipeline (`/src/pages`)**:
+    *   `CheckoutPage.tsx`: Product selection and initial customer billing details.
+    *   `QuotationPage.tsx`: Interactive pricing calculator visualizing APR savings vs traditional credit cards.
+    *   `ContractPage.tsx`: Contract creation, dynamic pool rate loading, and Freighter connection.
+    *   `ProcessingPage.tsx`: Webhook orchestration for Pix downpayments and Freighter XDR signing hooks.
+    *   `DashboardPage.tsx`: Active installment list with direct on-chain USDC payment options.
+    *   `DemoWalkthroughPage.tsx`: A self-contained, high-fidelity MVP simulator designed for resilient demonstration recordings.
+*   **Global Context (`/src/hooks/useBNPL`)**: Manages step progress, customer data, selected product details, and payment histories seamlessly.
+*   **API Interoperability (`/src/services/api.ts`)**: Structured Axios wrapper with robust interception and error handling for connection to the backend and Stellar Horizon.
 
 ---
 
-## Etherfuse — On-ramp / Off-ramp
+### 2. Backend Gateway (`/backend-cpanel`)
+An **Express + TypeScript** server acting as a gateway and transaction builder between the frontend application, the Stellar Network, and third-party APIs.
 
-**Documentação:** https://docs.etherfuse.com
-**Sandbox:** https://devnet.etherfuse.com
-
-**Fluxo on-ramp (BRL → USDC via Pix):**
-1. `POST /api/etherfuse/quote-onramp` `{ amount_brl, wallet_address }`
-2. `POST /api/etherfuse/order` `{ quoteId }` → retorna chave Pix + expiração
-3. Usuário paga Pix no banco
-4. Etherfuse detecta → envia webhook `POST /webhook/etherfuse`
-5. Backend valida HMAC → invoca `pagar_parcela()` no contrato Soroban
-
-**Autenticação Etherfuse:**
-```
-Header: Authorization: <api_key>   ← sem "Bearer"
-```
-
-**Sandbox API URL:** `https://api.sand.etherfuse.com`
+*   **Execution Modes**:
+    *   `app-hybrid.ts` (Recommended): Operates on the live Stellar Horizon Testnet. Dynamically builds on-chain payment structures, validates balances, and funding using custom HTTP fetch operations (minimizing client-side WebAssembly size).
+    *   `app-lite.ts`: Sandbox mode utilizing fully-simulated in-memory states to support offline or rapid testing configurations.
+*   **Key Features**:
+    *   **Trustline Builder**: Seamlessly configures USDC asset trustlines on the fly.
+    *   **Account Validator**: Checks wallet balances and activates accounts dynamically using Horizon and Friendbot.
+    *   **Rate Limiters**: Prevents SyloPay service abuse via IP-based rate limiting on sensitive transaction preparation routes.
 
 ---
 
-## Variáveis de Ambiente (.env — NÃO commitar)
+### 3. Soroban Smart Contracts (`/contracts/sylopay_bnpl`)
+Written in **Rust**, the smart contracts govern the credit agreement, payment enforcement, and merchant settlement.
 
-```env
-# API
-NODE_ENV=development
-PORT=3000
-FRONTEND_URL=http://localhost:3001
-
-# Stellar Testnet
-STELLAR_NETWORK=TESTNET
-STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
-STELLAR_MASTER_PUBLIC=GDQ6Y...
-STELLAR_MASTER_SECRET=SAK3Y...
-STELLAR_MERCHANT_PUBLIC=GCPY2...
-STELLAR_MERCHANT_SECRET=SCQGG...
-STELLAR_CUSTOMER_PUBLIC=GBEZL...
-STELLAR_CUSTOMER_SECRET=SATT5...
-
-# Etherfuse Sandbox
-ETHERFUSE_API_KEY=api_sand:059da7a3-...:fe9688d0-...
-ETHERFUSE_BASE_URL=https://api.sand.etherfuse.com
-ETHERFUSE_WEBHOOK_SECRET=          # preencher ao registrar webhook
-
-# Soroban Contract (Testnet)
-SOROBAN_CONTRACT_ID=CDJFOVTWLKX7EF7VSLRV5MYEHH2HS4T3QG6XKYHHOQXSS66QDNMYHWFG
-SOROBAN_ADMIN_SECRET=SDHCECF46GLTG53XFWXW4DESA4B7WWPI4PABLAHNVNMOEXUU7QZA4J66
-SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
-SOROBAN_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
-```
+*   **Key Operations**:
+    *   `criar_contrato`: Locks the credit terms (Total Amount, Installment Count, Client and Merchant Keys) directly into the Stellar ledger.
+    *   `pagar_parcela`: Direct or webhook-backed USDC call verifying payment against the installment schedules and updating payment statuses on-chain.
+    *   `listar_contratos`: Queries active BNPL agreements associated with any client public key.
 
 ---
 
-## API Endpoints Disponíveis (backend-cpanel)
+## 🌐 Protocol & Gateway Integrations
 
-### Originais (mock)
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/health` | Health check |
-| GET | `/api/stellar/health` | Status Stellar |
-| POST | `/api/quotation` | Opções de parcelamento |
-| POST | `/api/contract` | Cria contrato (mock) |
-| GET | `/api/contract/:id` | Busca contrato (mock) |
-| POST | `/api/stellar/process-payment` | Paga parcela (mock) |
-
-### Novos — Etherfuse
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| POST | `/api/etherfuse/quote-onramp` | Cotação BRL→USDC |
-| POST | `/api/etherfuse/order` | Cria ordem Pix |
-| GET | `/api/etherfuse/order/:id` | Polling status ordem |
-| GET | `/api/etherfuse/assets` | Lista ativos disponíveis |
-
-### Novos — Soroban (on-chain)
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| POST | `/api/soroban/contract` | Cria contrato on-chain |
-| GET | `/api/soroban/contract/:id` | Status do contrato on-chain |
-| GET | `/api/soroban/contracts/cliente/:pubkey` | Contratos de um cliente |
-
-### Webhook
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| POST | `/webhook/etherfuse` | Recebe eventos Etherfuse (HMAC verificado) |
+| Protocol / Gateway | Purpose | Tech Implementation |
+| :--- | :--- | :--- |
+| **Blend Protocol** | Dynamic credit APR calculation | Integrated into the Pricing Service to fetch real-time borrower and supplier pool utilization rates. |
+| **Etherfuse Sandbox** | BRL-to-USDC conversion | Simulated Webhook trigger translating traditional Brazilian Pix payments into immediate on-chain USDC settlements. |
+| **Protocol x402** | Web Monetization & Routing | Native HTTP 402 payment pointer integration allowing merchant platforms to query dynamic billing states interoperably. |
 
 ---
 
-## Como Rodar Localmente
-
-```bash
-# Terminal 1 — Backend
-cd backend-cpanel
-npm install
-npm run dev:hybrid      # porta 3000
-
-# Terminal 2 — Frontend
-cd frontend
-npm install
-npm run dev             # porta 3001
-```
-
----
-
-## O que falta implementar (Fase 3 e 4 do plano)
-
-### Fase 3 — Frontend Pix
-- [ ] Componente `PixPayment.tsx` (QR Code + countdown + polling)
-- [ ] Atualizar `ProcessingPage.tsx` para usar `/api/etherfuse/quote-onramp`
-- [ ] Atualizar `DashboardPage.tsx` para ler `/api/soroban/contract/:id`
-- [ ] Instalar `qrcode.react` no frontend
-
-### Fase 4 — Webhooks local
-- [ ] Instalar e configurar `ngrok` para dev local
-- [ ] Registrar webhook na Etherfuse via `/api/etherfuse` ou curl
-- [ ] Salvar `ETHERFUSE_WEBHOOK_SECRET` no `.env`
-- [ ] Testar fluxo completo sandbox: Pix simulado → webhook → Soroban
-
----
-
-## Contas Stellar (Testnet)
-
-**Admin do contrato Soroban:**
-- Public: `stellar keys address sylopay_admin`
-- Secret: `SDHCECF46GLTG53XFWXW4DESA4B7WWPI4PABLAHNVNMOEXUU7QZA4J66`
-- Gerado com: `stellar keys generate sylopay_admin --network testnet --fund`
-
-**Seed phrase (sylopay_admin):**
-> budget accident beach fit beach fatal snack shaft voice explain valid swallow
-> ribbon trumpet humor drink chunk estate soap weather photo convince toilet rescue
-
----
-
-## Referências
-
-| Recurso | Link |
-|---------|------|
-| Etherfuse Docs | https://docs.etherfuse.com |
-| Etherfuse Sandbox | https://devnet.etherfuse.com |
-| Stellar Docs | https://developers.stellar.org |
-| Soroban SDK Rust | https://docs.rs/soroban-sdk/22.0.0 |
-| Stellar CLI | https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli |
-| Stellar Explorer (Testnet) | https://stellar.expert/explorer/testnet |
-| Repositório de referência (Rust) | https://github.com/josiasdev/contrato_biblia |
+## 🔑 Key Deployment Details
+*   **Horizon Testnet Endpoint**: `https://horizon-testnet.stellar.org`
+*   **Standard USDC Contract (Testnet)**: `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`
+*   **Soroban Contract ID**: `CBY3H6BBUJ64H3QGSDMEQVZU3GKXV4WRE7V7X62PUFXNWYAHI4CCWTXH`
