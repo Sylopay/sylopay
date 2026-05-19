@@ -11,19 +11,11 @@ use soroban_sdk::{
     Address, Env, String, Vec, vec,
 };
 
-// ============================================================
-// Contrato principal
-// ============================================================
-
 #[contract]
 pub struct SyloPayBNPL;
 
 #[contractimpl]
 impl SyloPayBNPL {
-
-    // ----------------------------------------------------------
-    // Inicialização (executar 1x após o deploy)
-    // ----------------------------------------------------------
 
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&ChaveStorage::Admin) {
@@ -34,10 +26,6 @@ impl SyloPayBNPL {
         log!(&env, "SyloPay BNPL inicializado. Admin: {}", admin);
     }
 
-    // ----------------------------------------------------------
-    // Criar contrato BNPL
-    // ----------------------------------------------------------
-
     pub fn criar_contrato(
         env: Env,
         merchant: Address,
@@ -45,7 +33,6 @@ impl SyloPayBNPL {
         valor_total: i128,
         num_parcelas: u32,
     ) -> String {
-        // O próprio cliente autoriza a criação do contrato via Freighter
         cliente.require_auth();
 
         if valor_total <= 0 {
@@ -55,7 +42,6 @@ impl SyloPayBNPL {
             panic!("Numero de parcelas deve ser entre 1 e 12");
         }
 
-        // Gera ID único
         let contador: u32 = env.storage().instance().get(&ChaveStorage::ContadorContratos).unwrap_or(0);
         let novo_contador = contador + 1;
         env.storage().instance().set(&ChaveStorage::ContadorContratos, &novo_contador);
@@ -63,11 +49,9 @@ impl SyloPayBNPL {
         let id_str = String::from_str(&env, &format_id(novo_contador));
         let agora = env.ledger().timestamp();
 
-        // Calcula valor por parcela
         let valor_parcela = valor_total / num_parcelas as i128;
         let dias_30: u64 = 30 * 24 * 60 * 60;
 
-        // Cria parcelas
         let empty_hash = String::from_str(&env, "");
         let mut parcelas: Vec<Parcela> = vec![&env];
 
@@ -93,10 +77,8 @@ impl SyloPayBNPL {
             criado_em: agora,
         };
 
-        // Persiste o contrato
         env.storage().persistent().set(&ChaveStorage::Contrato(id_str.clone()), &contrato);
 
-        // Adiciona à lista de contratos do cliente
         let mut lista_cliente: Vec<String> = env
             .storage()
             .persistent()
@@ -105,7 +87,6 @@ impl SyloPayBNPL {
         lista_cliente.push_back(id_str.clone());
         env.storage().persistent().set(&ChaveStorage::ContratosCliente(cliente), &lista_cliente);
 
-        // Emite evento
         env.events().publish(
             (symbol_short!("BNPL_NEW"), merchant),
             (id_str.clone(), valor_total, num_parcelas),
@@ -114,10 +95,6 @@ impl SyloPayBNPL {
         log!(&env, "Contrato BNPL criado: {}", id_str);
         id_str
     }
-
-    // ----------------------------------------------------------
-    // Pagar uma parcela
-    // ----------------------------------------------------------
 
     pub fn pagar_parcela(
         env: Env,
@@ -131,14 +108,12 @@ impl SyloPayBNPL {
             .get(&ChaveStorage::Contrato(contrato_id.clone()))
             .expect("Contrato nao encontrado");
 
-        // O próprio cliente dono do contrato autoriza o pagamento
         contrato.cliente.require_auth();
 
         if contrato.status != StatusContrato::Ativo {
             panic!("Contrato nao esta ativo");
         }
 
-        // Encontra e atualiza a parcela
         let agora = env.ledger().timestamp();
         let mut parcela_encontrada = false;
         let mut parcelas_atualizadas: Vec<Parcela> = vec![&env];
@@ -170,7 +145,6 @@ impl SyloPayBNPL {
 
         contrato.parcelas = parcelas_atualizadas;
 
-        // Se todas as parcelas (exceto a que acabou de ser paga) já estavam pagas → contrato concluído
         if todas_pagas {
             contrato.status = StatusContrato::Concluido;
             env.events().publish(
@@ -179,7 +153,6 @@ impl SyloPayBNPL {
             );
         }
 
-        // Emite evento de pagamento
         env.events().publish(
             (symbol_short!("BNPL_PAY"),),
             (contrato_id.clone(), numero_parcela, tx_hash),
@@ -188,10 +161,6 @@ impl SyloPayBNPL {
         env.storage().persistent().set(&ChaveStorage::Contrato(contrato_id), &contrato);
         log!(&env, "Parcela {} paga com sucesso", numero_parcela);
     }
-
-    // ----------------------------------------------------------
-    // Marcar contrato como inadimplente
-    // ----------------------------------------------------------
 
     pub fn marcar_inadimplente(env: Env, contrato_id: String) {
         let admin: Address = env.storage().instance().get(&ChaveStorage::Admin).unwrap();
@@ -231,10 +200,6 @@ impl SyloPayBNPL {
         );
     }
 
-    // ----------------------------------------------------------
-    // Consultas (readonly)
-    // ----------------------------------------------------------
-
     pub fn status_contrato(env: Env, contrato_id: String) -> ContratoBNPL {
         env.storage()
             .persistent()
@@ -264,8 +229,5 @@ impl SyloPayBNPL {
     }
 }
 
-// ============================================================
-// Testes
-// ============================================================
 #[cfg(test)]
 mod test;
