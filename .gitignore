@@ -51,3 +51,4 @@ temp/
 
 # Local databases/contracts
 backend-cpanel/contracts.json
+scripts/set_vercel_env.sh
