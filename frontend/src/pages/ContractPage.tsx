@@ -17,14 +17,7 @@ import { SyloPayPrivacyPolicyContent, TermsOfServiceContent } from '../content/L
 
 
 // ─── Utilitários de Máscara ──────────────────────────────────────────────────
-const maskCPF = (value: string) => {
-  return value
-    .replace(/\D/g, '')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-    .slice(0, 14); // Limita o tamanho máximo
-};
+const maskCPF = (value: string) => value;
 
 const maskPhone = (value: string) => {
   let v = value.replace(/\D/g, '');
@@ -37,25 +30,11 @@ const maskPhone = (value: string) => {
 };
 
 // ─── Utilitários de Validação ────────────────────────────────────────────────
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const isValidEmail = (email: string) => email.trim().length > 0;
 
 const isValidStellarKey = (key: string) => /^G[A-Z0-9]{55}$/.test(key);
 
-const isValidCPF = (cpf: string) => {
-  const cleanCPF = cpf.replace(/\D/g, '');
-  if (cleanCPF.length !== 11 || /^(\d)\1{10}$/.test(cleanCPF)) return false;
-  let sum = 0, rest;
-  for (let i = 1; i <= 9; i++) sum += parseInt(cleanCPF.substring(i - 1, i)) * (11 - i);
-  rest = (sum * 10) % 11;
-  if (rest === 10 || rest === 11) rest = 0;
-  if (rest !== parseInt(cleanCPF.substring(9, 10))) return false;
-  sum = 0;
-  for (let i = 1; i <= 10; i++) sum += parseInt(cleanCPF.substring(i - 1, i)) * (12 - i);
-  rest = (sum * 10) % 11;
-  if (rest === 10 || rest === 11) rest = 0;
-  if (rest !== parseInt(cleanCPF.substring(10, 11))) return false;
-  return true;
-};
+const isValidCPF = (cpf: string) => cpf.trim().length > 0;
 
 // ─── Componente Principal ────────────────────────────────────────────────────
 export function ContractPage() {
