@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Check, CreditCard, Shield, ArrowRight, Calculator, TrendingDown, Info, Wallet, AlertCircle } from 'lucide-react';
+import { ArrowLeft, User, Check, CreditCard, Shield, ArrowRight, Calculator, TrendingDown, Info, Wallet, AlertCircle, ExternalLink } from 'lucide-react';
 import { useBNPL } from '../hooks/useBNPL';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -165,7 +165,7 @@ export function ContractPage() {
             
             {/* Wallet Connection */}
             <Card className="bg-[#121212] border-zinc-800/80">
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle className="flex items-center text-zinc-100 text-base">
                   <Wallet className="w-5 h-5 mr-2 text-orange-500" />
                   Connect Your Stellar Wallet
@@ -174,11 +174,52 @@ export function ContractPage() {
                   Choose how you'd like to connect your Stellar account for this BNPL contract
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <WalletConnector
                   selectedPublicKey={formData.stellarPublicKey}
                   onWalletSelect={handleWalletSelect}
                 />
+                
+                {formData.stellarPublicKey && (
+                  <div className="mt-4 p-4 rounded-xl bg-orange-950/10 border border-orange-500/20 backdrop-blur-sm">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-orange-500 flex items-center">
+                        <Check className="w-3.5 h-3.5 mr-1.5 text-green-500" />
+                        Connected Account Status
+                      </span>
+                      <Badge variant="outline" className="text-[9px] border-orange-500/30 text-orange-500 bg-orange-950/20 font-mono">
+                        {walletType === 'freighter' ? 'Freighter Wallet' : 'Demo Mode Wallet'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 bg-[#0a0a0a] border border-zinc-800/60 rounded-lg px-3 py-2.5">
+                      <div className="font-mono text-[11px] text-zinc-300 truncate select-all">
+                        {formData.stellarPublicKey}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-[10px] text-zinc-400 hover:text-orange-500 hover:bg-orange-500/10 shrink-0"
+                        onClick={() => {
+                          navigator.clipboard.writeText(formData.stellarPublicKey);
+                        }}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 mt-2 flex items-center justify-between">
+                      <span>Network: <strong className="text-zinc-400">Stellar Testnet</strong></span>
+                      <a
+                        href={`https://stellar.expert/explorer/testnet/account/${formData.stellarPublicKey}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-orange-500 hover:underline flex items-center"
+                      >
+                        Stellar.Expert <ExternalLink className="w-3 h-3 ml-1" />
+                      </a>
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -279,47 +320,7 @@ export function ContractPage() {
                     </div>
                   </div>
 
-                  {/* Public Key */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <label htmlFor="stellarPublicKey" className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                        Stellar Public Key *
-                      </label>
-                      <Badge variant="outline" className="text-[9px] border-zinc-700 text-zinc-500">Testnet</Badge>
-                    </div>
-                    <div className="relative">
-                      <Input
-                        id="stellarPublicKey"
-                        name="stellarPublicKey"
-                        value={formData.stellarPublicKey}
-                        onChange={handleInputChange}
-                        onBlur={handleBlur}
-                        placeholder="GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-                        readOnly={walletConnected && walletType !== 'manual'}
-                        className={`font-mono text-xs h-11 pr-32 bg-[#0a0a0a] border ${touched.stellarPublicKey && errors.stellarPublicKey ? 'border-red-500 focus-visible:ring-red-500' : 'border-zinc-800 focus-visible:ring-orange-500'} text-zinc-200 placeholder:text-zinc-600 ${walletConnected && walletType !== 'manual' ? 'opacity-70 cursor-not-allowed' : ''}`}
-                      />
-                      {walletConnected && walletType !== 'manual' && (
-                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                          <Badge variant="secondary" className="text-[10px] bg-zinc-800 hover:bg-zinc-800 text-zinc-300 border-none">
-                            <Check className="w-3 h-3 mr-1 text-green-500" />
-                            {walletType === 'freighter' ? 'Freighter' : 'Demo'}
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-                    {touched.stellarPublicKey && errors.stellarPublicKey ? (
-                      <p className="text-[10px] text-red-400 flex items-center mt-1">
-                        <AlertCircle className="w-3 h-3 mr-1" /> {errors.stellarPublicKey}
-                      </p>
-                    ) : (
-                      <p className="text-[10px] text-zinc-500">
-                        {walletConnected && walletType !== 'manual'
-                          ? `Wallet connected. Public key locked for security.`
-                          : 'Enter a valid Stellar Public Key (starts with G, 56 characters)'
-                        }
-                      </p>
-                    )}
-                  </div>
+
 
                   {/* Terms and Conditions */}
                   <Card className="bg-[#0a0a0a] border-zinc-800">
