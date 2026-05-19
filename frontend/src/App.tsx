@@ -6,6 +6,7 @@ import QuotationPage from './pages/QuotationPage';
 import ContractPage from './pages/ContractPage';
 import ProcessingPage from './pages/ProcessingPage';
 import DashboardPage from './pages/DashboardPage';
+import DemoWalkthroughPage from './pages/DemoWalkthroughPage';
 import './styles/globals.css';
 
 function AppContent() {
@@ -37,6 +38,7 @@ function AppContent() {
           <Route path="/contract" element={<ContractPage />} />
           <Route path="/processing" element={<ProcessingPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/demo" element={<DemoWalkthroughPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

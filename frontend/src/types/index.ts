@@ -62,15 +62,25 @@ export interface Product {
   name: string;
   description: string;
   price: string;
+  displayPrice?: string;
   image: string;
   category: string;
 }
 
 // Stellar Account Types
+export interface StellarBalance {
+  asset_type: string;
+  asset_code?: string;
+  asset_issuer?: string;
+  balance: string;
+}
+
 export interface StellarAccount {
   publicKey: string;
   balance: string;
+  balances?: StellarBalance[];
   sequence: string;
+  exists?: boolean;
   explorerUrl: string;
 }
 
@@ -83,25 +93,27 @@ export interface AppState {
   contract: Contract | null;
   loading: boolean;
   error: string | null;
+  selectedAsset: 'USDC' | 'XLM';
 }
 
 // Demo Data
 export const DEMO_PRODUCT: Product = {
   id: 'samsung-galaxy-s25-ultra',
   name: 'Samsung Galaxy S25 Ultra 5G',
-  description: 'Samsung Galaxy S25 Ultra 5G Smartphone, 256GB Storage, 12GB RAM, Quad Camera System 200+50+10+50MP, Large 6.9" Display, Titanium Black',
-  price: '1200.0000000',
+  description: 'The most powerful Samsung smartphone...',
+  price: '19.90',        // ← valor real usado no contrato (USDC demo)
+  displayPrice: '8799.00', // ← valor exibido ao usuário (BRL real)
   image: '/samsung-s25-ultra-main.jpg',
   category: 'Smartphones'
 };
 
 export const DEMO_MERCHANT = {
   name: 'TechStore Demo',
-  publicKey: 'GDGDQR3GOGDYKMNOVOIVF2LYZZXDPPYJSYCZ3VSDIQOZ6FONU5JTF5HE'
+  publicKey: 'GD56ZNTTYAOKCBPRAGYI4OIEB44UTVVTOIW6TLVRMXIF7DP66E6WXUUV'
 };
 
 export const DEMO_CUSTOMER = {
-  stellarPublicKey: 'GA57YQCS5NV4TXQPXR6DIKDYTQCMODQ3HNFKJZOULEE7M74SZ6RAIVLA',
+  stellarPublicKey: 'GBEZLV6PNNASOMQX6DUU67RH4VGJIM224PVPU36JNBATM773DXMVCYGV',
   email: 'demo@hackathon.stellar',
   fullName: 'Demo Customer',
   phone: '+55 11 99999-9999',

@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './swagger';
 
 config();
 
@@ -13,6 +15,9 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Swagger Docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Mock data storage (in production, use a database)
 const contracts: any[] = [];

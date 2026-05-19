@@ -143,20 +143,20 @@ export function CheckoutPage() {
                   {product.name}
                 </h1>
                 <p className="text-lg text-muted-foreground mt-2">
-                  256GB, 12GB RAM, Quad Camera 200MP, 6.9" Display, Titanium Black
+                  256GB • 12GB RAM • 200MP Camera • 6.9" Screen • Snapdragon 8 Elite • S Pen
                 </p>
               </div>
 
               <div className="flex items-center space-x-4">
                 <div className="flex items-baseline space-x-2">
+                  <span className="text-2xl font-bold text-muted-foreground">BRL</span>
                   <span className="text-4xl font-bold text-foreground">
-                    {parseFloat(product.price).toFixed(0)}
+                    {parseFloat(product.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </span>
-                  <span className="text-xl font-medium text-primary">XLM</span>
                 </div>
                 <Badge variant="outline" className="text-muted-foreground">
-                  ≈ $3,000 USD
-                </Badge>
+  ≈ ${(parseFloat(product.price) / 5.7).toLocaleString('en-US', { maximumFractionDigits: 0 })} USD
+</Badge>
               </div>
 
               {/* Rating */}
@@ -277,7 +277,7 @@ export function CheckoutPage() {
                   <CreditCard className="w-5 h-5 mr-3" />
                   <span>Pay Full Amount</span>
                 </div>
-                <span className="font-semibold">{parseFloat(product.price).toFixed(0)} XLM</span>
+                <span className="font-semibold">BRL {parseFloat(product.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
               </Button>
 
               {/* BNPL Payment */}

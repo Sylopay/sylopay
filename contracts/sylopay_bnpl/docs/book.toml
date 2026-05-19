@@ -1,0 +1,9 @@
+[book]
+authors = ["SyloPay Team"]
+language = "en"
+src = "src"
+title = "SyloPay BNPL Soroban Contracts"
+
+[output.html]
+git-repository-url = "https://github.com/Sylopay/sylopay"
+edit-url-template = "https://github.com/Sylopay/sylopay/edit/main/contracts/sylopay_bnpl/docs/{path}"
