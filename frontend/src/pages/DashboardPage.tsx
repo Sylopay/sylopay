@@ -154,19 +154,19 @@ export function DashboardPage() {
       const res1 = await sub1.json();
       if (!sub1.ok || !res1.success) throw new Error('Falha no pagamento USDC: ' + (res1.error || JSON.stringify(res1)));
 
-      // 2nd Signature
-      console.log('[Dashboard] Assinando atualização on-chain...');
-      const sig2 = await signTransaction(xdrSoroban, { networkPassphrase: PASSPHRASE }) as any;
-      const signedSoroban = typeof sig2 === 'string' ? sig2 : sig2.signedTxXdr;
-      if (!signedSoroban) throw new Error('Falha ao assinar TX Soroban');
-
-      const sub2 = await fetch('/api/soroban/submit-transaction', {
+      // 2nd Step: Backend confirms payment and updates smart contract (Admin Signature)
+      console.log('[Dashboard] Atualização on-chain sendo feita pelo admin...');
+      const sub2 = await fetch('/api/soroban/confirm-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signedXdr: signedSoroban }),
+        body: JSON.stringify({
+          contratoId: sorobanContrato.id,
+          numeroParcela: pendingPaymentInstallment,
+          txHash: res1.txHash,
+        }),
       });
       const res2 = await sub2.json();
-      if (!sub2.ok || !res2.success) throw new Error('Falha ao atualizar contrato: ' + res2.error);
+      if (!sub2.ok || !res2.success) throw new Error('Falha ao atualizar contrato pelo Admin: ' + res2.error);
 
       // Success Modal
       setPaymentStatusModal({
@@ -273,14 +273,14 @@ export function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-zinc-200 selection:bg-orange-500/30">
-      {/* DOUBLE SIGNATURE EXPLANATION MODAL */}
+      {/* SIGNATURE EXPLANATION MODAL */}
       {isSignModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#121212] border border-zinc-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-5 border-b border-zinc-800 flex justify-between items-center">
               <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
                 <Shield className="w-5 h-5 text-orange-500" />
-                Wallet Signatures Required
+                Wallet Signature Required
               </h3>
               <button onClick={() => setIsSignModalOpen(false)} className="text-zinc-500 hover:text-zinc-300">
                 <X className="w-5 h-5" />
@@ -288,7 +288,7 @@ export function DashboardPage() {
             </div>
             <div className="p-6 space-y-5">
               <p className="text-sm text-zinc-400 leading-relaxed">
-                To securely process this installment, your Freighter wallet will prompt you to approve <strong className="text-zinc-200">two separate transactions</strong>. Here is why:
+                To securely process this installment, your Freighter wallet will prompt you to approve <strong className="text-zinc-200">one transaction</strong>. Here is why:
               </p>
               
               <div className="space-y-4">
@@ -298,17 +298,17 @@ export function DashboardPage() {
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-zinc-200">Transfer USDC</h4>
-                    <p className="text-xs text-zinc-500 mt-1">First signature authorizes the actual payment of USDC from your wallet to the merchant.</p>
+                    <p className="text-xs text-zinc-500 mt-1">This signature authorizes the actual payment of USDC from your wallet to the merchant.</p>
                   </div>
                 </div>
 
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-full bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-bold text-orange-400">2</span>
+                    <CheckCircle className="w-4 h-4 text-orange-400" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-semibold text-zinc-200">Update Smart Contract</h4>
-                    <p className="text-xs text-zinc-500 mt-1">Second signature writes the digital receipt into the Soroban smart contract, officially marking the installment as "Paid" on the blockchain.</p>
+                    <h4 className="text-sm font-semibold text-zinc-200">Automatic Smart Contract Update</h4>
+                    <p className="text-xs text-zinc-500 mt-1">The smart contract will be automatically updated by the SyloPay network without requiring any XLM gas fees from your wallet.</p>
                   </div>
                 </div>
               </div>

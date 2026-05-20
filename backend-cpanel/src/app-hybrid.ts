@@ -837,6 +837,29 @@ app.post('/api/soroban/confirm-first-payment', async (req, res) => {
   }
 });
 
+// POST /api/soroban/confirm-payment
+app.post('/api/soroban/confirm-payment', async (req, res) => {
+  try {
+    const { contratoId, numeroParcela, txHash } = req.body;
+
+    // Orchestrator (backend) assina a transação de atualização de status
+    const updateResult = await sorobanService.finalizarPagamentoParcela(
+      contratoId,
+      numeroParcela,
+      txHash
+    );
+
+    res.json({
+      success: true,
+      txHash: updateResult.txHash,
+      explorerUrl: updateResult.explorerUrl
+    });
+  } catch (error) {
+    console.error('[Route] /api/soroban/confirm-payment error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Error confirming payment' });
+  }
+});
+
 // POST /api/soroban/prepare-payment
 // Retorna XDR para pagar parcela on-chain via wallet
 app.post('/api/soroban/prepare-payment', async (req, res) => {
