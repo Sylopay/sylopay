@@ -492,10 +492,28 @@ app.post('/api/etherfuse/order', async (req, res) => {
     const order = await etherfuseService.criarOrderOnramp(quoteId);
     res.json({ success: true, order });
   } catch (error) {
-    // Sandbox da Etherfuse exige proxy account (KYC) que não é viável em dev.
-    // Retornamos uma ordem simulada para que o fluxo de demonstração funcione.
-    console.warn('[Route] /api/etherfuse/order — Sandbox fallback enabled:',
-      error instanceof Error ? error.message : error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const isProxyError = /proxy account|bank.account|400/i.test(errMsg);
+
+    if (isProxyError) {
+      // ─────────────────────────────────────────────────────────────────────
+      // SANDBOX LIMITATION: Etherfuse requires a "proxy account" to be
+      // provisioned for your API key before orders can be created.
+      //
+      // To fix in production:
+      //   1. Sign up at https://etherfuse.com and get your API key
+      //   2. Email support@etherfuse.com to enable sandbox proxy provisioning
+      //   3. Create a bank account via POST /ramp/bank-account
+      //   4. Use the returned id as bankAccountId in POST /ramp/order
+      //
+      // Until then, returning a simulated sandbox order for demo purposes.
+      // ─────────────────────────────────────────────────────────────────────
+      console.warn('[Etherfuse] ⚠️  Proxy account not provisioned for this API key.');
+      console.warn('[Etherfuse] → Sandbox fallback order returned for demo flow.');
+      console.warn('[Etherfuse] → To resolve: contact support@etherfuse.com');
+    } else {
+      console.warn('[Route] /api/etherfuse/order — Unexpected error, using sandbox fallback:', errMsg);
+    }
 
     const orderId = `sandbox-order-${Date.now()}`;
     const sandboxOrder = {
@@ -513,9 +531,7 @@ app.post('/api/etherfuse/order', async (req, res) => {
       updatedAt: new Date().toISOString(),
     };
 
-    // Store sandbox order creation timestamp
     sandboxOrdersMap.set(orderId, { createdAt: Date.now() });
-
     res.json({ success: true, order: sandboxOrder, sandbox: true });
   }
 });
