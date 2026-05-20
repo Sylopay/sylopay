@@ -411,62 +411,81 @@ export function QuotationPage() {
 
                     {/* Market Comparison */}
                     <div>
-                      <p className="text-xs font-bold text-foreground mb-1">Market Comparison</p>
-                      <p className="text-[10px] text-muted-foreground mb-3">How SyloPay compares to traditional payment methods</p>
-                      <div className="grid grid-cols-3 gap-2 text-[10px]">
-                        {[
-                          {
-                            name: 'Traditional BNPL', fee: '6.00%', txFee: '$0.30',
-                            consumer: '0.00%', settlement: 'T+7 days', recommended: false,
-                          },
-                          {
-                            name: 'Credit Card Gateway', fee: '2.90%', txFee: '$0.30',
-                            consumer: '19.99%', settlement: 'T+2 days', recommended: false,
-                          },
-                          {
-                            name: 'SyloPay BNPL', fee: '3.50%', txFee: '$0.25',
-                            consumer: blendRate ? `${(blendRate.borrowRate * 0.8).toFixed(2)}%` : '1.50%', settlement: 'Instant', recommended: true,
-                          },
-                        ].map((m, i) => (
-                          <div
-                            key={i}
-                            className={`rounded-lg border p-3 ${
-                              m.recommended
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border/50 bg-background/30'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="font-bold text-foreground text-[10px] leading-tight">{m.name}</p>
-                              {m.recommended && (
-                                <Badge className="text-[8px] bg-primary text-primary-foreground border-none px-1 py-0 ml-1">
-                                  Best
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="space-y-1 text-[9px] text-muted-foreground">
-                              <div className="flex justify-between">
-                                <span>Merchant Fee</span>
-                                <span className="font-mono text-foreground">{m.fee}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Consumer Rate</span>
-                                <span className="font-mono text-foreground">{m.consumer}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>Settlement</span>
-                                <span className={`font-mono ${m.recommended ? 'text-green-400' : 'text-foreground'}`}>
-                                  {m.settlement}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>TX Fee</span>
-                                <span className="font-mono text-foreground">{m.txFee}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                      <p className="text-sm font-bold text-foreground mb-1">Market Comparison</p>
+                      <p className="text-xs text-muted-foreground mb-4">How SyloPay compares to traditional payment methods</p>
+
+                      {/* Header Row */}
+                      <div className="grid grid-cols-4 gap-2 mb-2 px-1">
+                        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Method</div>
+                        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Merchant</div>
+                        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Consumer</div>
+                        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Settlement</div>
                       </div>
+
+                      <div className="space-y-2">
+                        {/* Traditional BNPL */}
+                        <div className="grid grid-cols-4 gap-2 items-center bg-background/40 border border-border/40 rounded-lg px-3 py-3">
+                          <div>
+                            <p className="text-xs font-semibold text-foreground">Traditional BNPL</p>
+                            <p className="text-[10px] text-muted-foreground">Klarna, Afterpay</p>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-sm font-bold text-red-400">6.00%</span>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-sm font-bold text-foreground">0%</span>
+                            <p className="text-[9px] text-muted-foreground leading-tight">(merchant pays,<br/>late fees apply)</p>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-xs font-semibold text-muted-foreground">T+7 days</span>
+                          </div>
+                        </div>
+
+                        {/* Credit Card */}
+                        <div className="grid grid-cols-4 gap-2 items-center bg-background/40 border border-border/40 rounded-lg px-3 py-3">
+                          <div>
+                            <p className="text-xs font-semibold text-foreground">Credit Card</p>
+                            <p className="text-[10px] text-muted-foreground">Visa, Mastercard</p>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-sm font-bold text-orange-400">2.90%</span>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-sm font-bold text-red-400">19.99%</span>
+                            <p className="text-[9px] text-muted-foreground">revolving APR</p>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-xs font-semibold text-muted-foreground">T+2 days</span>
+                          </div>
+                        </div>
+
+                        {/* SyloPay — highlighted */}
+                        <div className="grid grid-cols-4 gap-2 items-center bg-primary/5 border-2 border-primary/40 rounded-lg px-3 py-3">
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <p className="text-xs font-bold text-foreground">SyloPay BNPL</p>
+                              <Badge className="text-[8px] bg-primary text-primary-foreground border-none px-1.5 py-0">Best</Badge>
+                            </div>
+                            <p className="text-[10px] text-primary/70">Powered by Blend + Stellar</p>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-sm font-bold text-primary">3.50%</span>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-sm font-bold text-green-400">
+                              {blendRate ? `${(blendRate.borrowRate * 0.8).toFixed(2)}%` : '~1.50%'}
+                            </span>
+                            <p className="text-[9px] text-green-400/70">live Blend rate</p>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-xs font-bold text-green-400">Instant</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
+                        * Traditional BNPL charges 0% to consumers because merchants absorb the cost (6% fee). Hidden fees such as late payment penalties still apply.
+                      </p>
                     </div>
                   </>
                 ) : (
