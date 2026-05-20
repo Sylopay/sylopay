@@ -276,7 +276,12 @@ export function QuotationPage() {
                     </span>
                     <span className="flex items-center gap-1 text-orange-400 font-medium">
                       <TrendingDown className="w-3 h-3" />
-                      {option.interestRate}% APR
+                      {(parseFloat(option.interestRate) > 0
+                        ? parseFloat(option.interestRate)
+                        : blendRate
+                        ? blendRate.borrowRate * 0.8
+                        : 2.0
+                      ).toFixed(2)}% APR
                     </span>
                   </div>
 
@@ -420,7 +425,7 @@ export function QuotationPage() {
                           },
                           {
                             name: 'SyloPay BNPL', fee: '3.50%', txFee: '$0.25',
-                            consumer: '1.50%', settlement: 'Instant', recommended: true,
+                            consumer: blendRate ? `${(blendRate.borrowRate * 0.8).toFixed(2)}%` : '1.50%', settlement: 'Instant', recommended: true,
                           },
                         ].map((m, i) => (
                           <div

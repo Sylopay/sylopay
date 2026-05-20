@@ -271,11 +271,16 @@ app.get('/api/stellar/account/:publicKey', async (req, res) => {
 // Quotation endpoint
 app.post('/api/quotation', async (req, res) => {
   try {
-    const { amount, installments = 3 } = req.body;
+    const { amount } = req.body;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Valid amount required' });
     }
+
+    // Simulated Blend Protocol live rate: 1.5–3.5% borrow range
+    const blendBorrowRate = 1.5 + Math.random() * 2; // e.g. 2.31%
+    // Consumer rate = 80% of Blend borrow rate (SyloPay discount vs direct DeFi)
+    const consumerRate = (blendBorrowRate * 0.8).toFixed(2);   // e.g. 1.85%
 
     const options = [2, 3, 4].map(count => {
       const installmentValue = (parseFloat(amount) / count).toFixed(2);
@@ -284,7 +289,8 @@ app.post('/api/quotation', async (req, res) => {
         installmentAmount: installmentValue,
         totalAmount: amount,
         frequencyDays: 30,
-        interestRate: '0.0000',
+        interestRate: consumerRate,   // Live Blend-derived rate
+        blendBorrowRate: parseFloat(blendBorrowRate.toFixed(2)),
         description: `${count}x of BRL ${installmentValue}`
       };
     });
@@ -294,6 +300,7 @@ app.post('/api/quotation', async (req, res) => {
       originalAmount: amount,
       options,
       currency: 'BRL',
+      blendBorrowRate: parseFloat(blendBorrowRate.toFixed(2)),
       generatedAt: new Date().toISOString()
     });
   } catch (error) {
