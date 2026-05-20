@@ -16,6 +16,16 @@ SyloPay is a Buy Now, Pay Later (BNPL) checkout protocol leveraging the **Stella
 
 ---
 
+## 🚀 Production Deployments
+
+The SyloPay BNPL checkout ecosystem is fully deployed and accessible:
+
+*   **Frontend web app**: [sylopay-bnpl.vercel.app](https://sylopay-bnpl.vercel.app)
+*   **Backend gateway REST API**: [backend-cpanel.vercel.app](https://backend-cpanel.vercel.app/health)
+*   **Soroban Contract Explorer (Testnet)**: [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBY3H6BBUJ64H3QGSDMEQVZU3GKXV4WRE7V7X62PUFXNWYAHI4CCWTXH)
+
+---
+
 ## 🗂 Directory Structure
 
 ```
@@ -76,14 +86,23 @@ npm install
 
 ### 2. Configure Environment Variables
 
-Scaffold a clean configuration profile from the template:
+Create a `.env` file in the `backend-cpanel` folder with the following variables (see `.env.example` for details):
 
-```bash
-# Run in project root
-cp .env.example .env
+```env
+STELLAR_NETWORK=TESTNET
+STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
+STELLAR_MASTER_PUBLIC=GDQ6Y3...
+STELLAR_MASTER_SECRET=SAK3YZ...
+STELLAR_MERCHANT_PUBLIC=GD56ZN...
+STELLAR_MERCHANT_SECRET=SA6TMU...
+ETHERFUSE_API_KEY=api_sand:...
+ETHERFUSE_BASE_URL=https://api.sand.etherfuse.com
+SOROBAN_CONTRACT_ID=CBY3H6BBUJ64H3QGSDMEQVZU3GKXV4WRE7V7X62PUFXNWYAHI4CCWTXH
+SOROBAN_ADMIN_SECRET=SDHCEC...
+SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+SOROBAN_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
+FRONTEND_URL=http://localhost:3001
 ```
-
-Open the newly created `.env` file and insert the active public/private keys and sandbox credentials.
 
 ---
 
@@ -160,11 +179,20 @@ We offer robust, technical specification materials for the SyloPay ecosystem:
 
 ```
 [/]           CheckoutPage   → Catalog items selection
-[/quotation]  QuotationPage  → Installment quotes selection via DeFi (Blend pool APR)
-[/contract]   ContractPage   → XDR Envelope signature using Freighter Wallet
+[/quotation]  QuotationPage  → Installment plans selection (USDC only) leveraging Blend pool APR rates
+[/contract]   ContractPage   → XDR Envelope signature using Freighter Wallet (USDC pricing)
 [/processing] ProcessingPage → On-chain registration and Pix Sandbox QR Code generation
-[/dashboard]  DashboardPage  → USDC fatura settlement and installments tracking
+[/dashboard]  DashboardPage  → Gasless USDC fatura settlement and installments tracking
 ```
+
+---
+
+## 💎 Core Protocol Features
+
+1.  **USDC-Only Pricing**: Standardized currency interface. Products priced in BRL are automatically converted to USDC at a constant conversion rate (`5.7`) to ensure stable checkout agreements.
+2.  **Gasless Installment Settlement**: Administrative sponsorship model. The user pays only the installment amount in USDC. The Stellar transaction fee (XLM) for contract state updates (`pagar_parcela`) is sponsored and paid by the administrator (`admin.require_auth()`).
+3.  **Blend Protocol Live APR**: Real-time pricing intelligence. The `/api/quotation` endpoint queries simulated live Blend borrowing rates (ranging from 1.5% to 3.5%) to calculate interest plans transparently.
+4.  **Etherfuse Sandbox Integration**: Automated BRL/Pix on-ramping. The gateway provisions a bank account for each customer via `POST /ramp/bank-account` to generate a valid `bankAccountId` before generating the Pix payment QR code.
 
 ---
 

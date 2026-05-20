@@ -21,6 +21,14 @@ graph TD
 
 ---
 
+## 🚀 Production Deployments
+
+*   **Frontend web app**: [sylopay-bnpl.vercel.app](https://sylopay-bnpl.vercel.app)
+*   **Backend gateway REST API**: [backend-cpanel.vercel.app](https://backend-cpanel.vercel.app/health)
+*   **Soroban Contract Explorer (Testnet)**: [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBY3H6BBUJ64H3QGSDMEQVZU3GKXV4WRE7V7X62PUFXNWYAHI4CCWTXH)
+
+---
+
 ## 🗂 Workspace Layout
 
 ```
@@ -72,7 +80,7 @@ sylopay/
 ## 🛠 Tech Stack
 
 *   **Frontend**: React 18, Vite 5, TypeScript 5, Tailwind CSS 3.
-*   **Backend**: Node.js, Express 4, TypeScript 5, OpenAPI / Swagger.
+*   **Backend**: Node.js, Express 4, TypeScript 5, OpenAPI / Swagger (Deployed to Vercel).
 *   **Smart Contracts**: Rust (`soroban-sdk v22`), Cargo.
 *   **Stablecoin**: USDC (Testnet).
 *   **On-Ramp Anchor (Pix)**: Etherfuse Sandbox FX API + HMAC secure cryptographic webhooks.
@@ -92,7 +100,7 @@ The SyloPay BNPL on-chain core is written in Rust, refactored into a comment-fre
 #### State-Mutating Endpoints
 *   `initialize(env: Env, admin: Address)`: Establishes contract administrator and boots the counter to zero.
 *   `criar_contrato(env: Env, merchant: Address, cliente: Address, valor_total: i128, num_parcelas: u32) -> String`: Registers a new structured BNPL contract on-chain. Staggers 30-day billing cycles, mapping ledger records into persistent storage.
-*   `pagar_parcela(env: Env, contrato_id: String, numero_parcela: u32, tx_hash: String)`: Confirms a single installment settlement, writing the transaction hash onto the ledger record.
+*   `pagar_parcela(env: Env, contrato_id: String, numero_parcela: u32, tx_hash: String)`: Confirms a single installment settlement, writing the transaction hash onto the ledger record. **Gasless Fee sponsorship**: This function uses `admin.require_auth()` instead of `client.require_auth()`, letting the backend administrator sign the transactions on behalf of the customer, paying the network fees (XLM) while the customer only pays the USDC principal.
 *   `marcar_inadimplente(env: Env, contrato_id: String)`: Allows only the administrator account to flag delinquent agreements with overdue installments.
 
 #### Read-Only Endpoints
@@ -114,7 +122,7 @@ The SyloPay BNPL on-chain core is written in Rust, refactored into a comment-fre
 
 ### FX Quotes & Orders (Etherfuse)
 *   `POST /api/etherfuse/quote-onramp`: Fetches conversion fees and Pix on-ramp quotes.
-*   `POST /api/etherfuse/order`: Dispatches sandboxed Pix order keys and Pix QR Codes.
+*   `POST /api/etherfuse/order`: Dispatches sandboxed Pix order keys and Pix QR Codes. Provisions a bank account via `/ramp/bank-account` first to ensure sandboxed proxy requirements are met.
 *   `GET /api/etherfuse/order/:id`: Queries transaction progress on the sandbox anchor.
 
 ### Soroban Ledger Procedures
@@ -131,6 +139,6 @@ The SyloPay BNPL on-chain core is written in Rust, refactored into a comment-fre
 
 ## 🎯 Integrations & Advanced Protocols
 
-1.  **DeFi Integrations**: Queries Blend Protocol pools to demonstrate competitive credit APR vs traditional credit cards.
+1.  **DeFi Integrations**: Queries simulated Blend Protocol pools borrow rates (1.5% to 3.5%) to calculate interest rates (80% of borrow rate) dynamically vs traditional credit card rates.
 2.  **HTTP 402 / x402 Specification**: Supports the Web Monetization standard. External marketplaces can resolve merchant vaults dynamically via standardized HTTP headers.
-3.  **Sandbox Demo Environments**: An integrated `/demo` interface which simulates the full checkout workflow seamlessly.
+3.  **USDC-Only Checkout Experience**: Eliminates checkout pricing ambiguity. Converts all catalog pricing to USDC values at checkout using a fixed rate (`5.7`) and calculates payment installments in USDC.
