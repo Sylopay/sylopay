@@ -102,13 +102,14 @@ impl SyloPayBNPL {
         numero_parcela: u32,
         tx_hash: String,
     ) {
+        let admin: Address = env.storage().instance().get(&ChaveStorage::Admin).unwrap();
+        admin.require_auth();
+
         let mut contrato: ContratoBNPL = env
             .storage()
             .persistent()
             .get(&ChaveStorage::Contrato(contrato_id.clone()))
             .expect("Contrato nao encontrado");
-
-        contrato.cliente.require_auth();
 
         if contrato.status != StatusContrato::Ativo {
             panic!("Contrato nao esta ativo");
