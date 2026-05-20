@@ -939,6 +939,9 @@ async function verifyUsdcPaymentOnChain(
 }
 
 // POST /api/soroban/confirm-first-payment
+// NOTE: This endpoint is triggered by the Etherfuse webhook (HMAC-verified) or sandbox
+// simulation after a Pix payment. The txHash may be a real Stellar tx (64 hex chars) or
+// an Etherfuse/sandbox order ID. On-chain verification is only applied to real Stellar txs.
 app.post('/api/soroban/confirm-first-payment', async (req, res) => {
   try {
     const { contratoId, txHash } = req.body;
@@ -952,13 +955,21 @@ app.post('/api/soroban/confirm-first-payment', async (req, res) => {
       return res.status(404).json({ error: 'Contract not found' });
     }
 
-    // ─── SECURITY: Verify USDC payment on-chain using Soroban as source of truth ───
-    const verification = await verifyUsdcPaymentOnChain(txHash, contratoId, 1);
-    if (!verification.valid) {
-      console.error(`[Security] Forged first-payment attempt on ${contratoId}: ${verification.reason}`);
-      return res.status(402).json({ error: 'Payment verification failed', reason: verification.reason });
+    // ─── SECURITY: Verify on-chain only for real Stellar transaction hashes ───
+    // Stellar txHashes are exactly 64 lowercase hex characters.
+    // Etherfuse sandbox IDs (e.g. "sandbox-order-XXX") are skipped — their
+    // authenticity is guaranteed by the HMAC webhook signature on /webhook/etherfuse.
+    const isStellarTxHash = /^[a-f0-9]{64}$/i.test(txHash);
+    if (isStellarTxHash) {
+      const verification = await verifyUsdcPaymentOnChain(txHash, contratoId, 1);
+      if (!verification.valid) {
+        console.error(`[Security] Forged first-payment attempt on ${contratoId}: ${verification.reason}`);
+        return res.status(402).json({ error: 'Payment verification failed', reason: verification.reason });
+      }
+    } else {
+      console.log(`[Verify] Sandbox/Etherfuse txHash detected (${txHash}) — skipping Horizon check (HMAC-verified flow)`);
     }
-    // ─────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     console.log('\n======================================================')
     console.log(`⚓ [ETHERFUSE ANCHOR] PIX Confirmed! Emulating BRL -> USDC conversion...`);
