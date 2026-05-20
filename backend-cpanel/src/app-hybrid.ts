@@ -1133,14 +1133,16 @@ app.use('*', (req, res) => {
   });
 });
 
-// Start server
-app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`SyloPay Backend (Hybrid) running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-  console.log(`Stellar API: ${HORIZON_URL}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Soroban Contract: ${process.env.SOROBAN_CONTRACT_ID}`);
-  console.log(`Etherfuse: ${process.env.ETHERFUSE_BASE_URL}`);
-});
+// Start server (only when running locally, not on Vercel serverless)
+if (process.env.VERCEL !== '1') {
+  app.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`SyloPay Backend (Hybrid) running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+    console.log(`Stellar API: ${HORIZON_URL}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Soroban Contract: ${process.env.SOROBAN_CONTRACT_ID}`);
+    console.log(`Etherfuse: ${process.env.ETHERFUSE_BASE_URL}`);
+  });
+}
 
 export default app;

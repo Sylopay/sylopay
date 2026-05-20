@@ -2,7 +2,10 @@
   "name": "sylopay-backend-lite",
   "version": "1.0.0",
   "description": "SyloPay Backend Lite for cPanel",
-  "main": "dist/app-lite.js",
+  "main": "src/app-hybrid.ts",
+  "engines": {
+    "node": ">=18.x"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/app-lite.js",
