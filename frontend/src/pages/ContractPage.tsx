@@ -392,7 +392,9 @@ export function ContractPage() {
                   <div className="flex justify-between">
                     <span className="text-zinc-500">Product Price:</span>
                     <span className="font-medium text-zinc-300">
-                      BRL {state.product ? parseFloat(state.product.price).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00'}
+                      USDC {state.product
+                        ? (parseFloat(state.product.price) / 5.7).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '0.00'}
                     </span>
                   </div>
 
@@ -406,38 +408,33 @@ export function ContractPage() {
                   <div className="flex justify-between">
                     <span className="text-zinc-500">Each Payment:</span>
                     <span className="font-medium text-zinc-300">
-                      BRL {state.selectedPlan ? parseFloat(state.selectedPlan.installmentAmount).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00'}
+                      USDC {state.selectedPlan
+                        ? parseFloat(state.selectedPlan.installmentAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '0.00'}
                     </span>
                   </div>
 
                   <div className="flex justify-between">
                     <span className="text-zinc-500">Interest Rate:</span>
                     <span className="font-medium text-green-500">
-                      {pricingBreakdown 
-                        ? `${pricingBreakdown.consumerInterestRate.toFixed(1)}% APR`
-                        : 'Calculating...'
-                      }
+                      {pricingBreakdown
+                        ? `${pricingBreakdown.consumerInterestRate.toFixed(2)}% APR`
+                        : state.selectedPlan?.interestRate
+                        ? `${parseFloat(state.selectedPlan.interestRate).toFixed(2)}% APR`
+                        : 'Calculating...'}
                     </span>
                   </div>
 
                   <div className="border-t border-zinc-800/50 pt-3 mt-3">
                     <div className="flex justify-between font-bold text-sm">
                       <span className="text-zinc-200">Total You'll Pay:</span>
-                      <div className="text-right">
-                        <p className="text-orange-500">
-                          {pricingBreakdown 
-                            ? `BRL ${pricingBreakdown.totalConsumerPayment.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                              : state.selectedPlan
-                              ? `BRL ${parseFloat(state.selectedPlan.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                              : 'BRL 0.00'
-                          }
-                        </p>
-                        {pricingBreakdown && (
-                          <p className="text-[10px] text-zinc-500 font-mono font-normal mt-0.5">
-                            ≈ {pricingService.formatCurrency(pricingService.convertToAsset(pricingBreakdown.totalConsumerPayment, state.selectedAsset), state.selectedAsset)}
-                          </p>
-                        )}
-                      </div>
+                      <span className="text-orange-500">
+                        USDC {pricingBreakdown
+                          ? (pricingBreakdown.totalConsumerPayment / 5.7).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : state.selectedPlan
+                          ? parseFloat(state.selectedPlan.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : '0.00'}
+                      </span>
                     </div>
                   </div>
                 </div>
