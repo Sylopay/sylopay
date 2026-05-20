@@ -141,10 +141,10 @@ export function DashboardPage() {
       const PASSPHRASE = 'Test SDF Network ; September 2015';
 
       // 1st Signature
-      console.log('[Dashboard] Assinando pagamento USDC...');
+      console.log('[Dashboard] Signing USDC payment...');
       const sig1 = await signTransaction(xdrPayment, { networkPassphrase: PASSPHRASE }) as any;
       const signedPayment = typeof sig1 === 'string' ? sig1 : sig1.signedTxXdr;
-      if (!signedPayment) throw new Error('Falha ao assinar TX de pagamento');
+      if (!signedPayment) throw new Error('Failed to sign payment transaction');
 
       const sub1 = await fetch('/api/stellar/submit-payment', {
         method: 'POST',
@@ -152,10 +152,10 @@ export function DashboardPage() {
         body: JSON.stringify({ signedXdr: signedPayment }),
       });
       const res1 = await sub1.json();
-      if (!sub1.ok || !res1.success) throw new Error('Falha no pagamento USDC: ' + (res1.error || JSON.stringify(res1)));
+      if (!sub1.ok || !res1.success) throw new Error('USDC payment failed: ' + (res1.error || JSON.stringify(res1)));
 
       // 2nd Step: Backend confirms payment and updates smart contract (Admin Signature)
-      console.log('[Dashboard] Atualização on-chain sendo feita pelo admin...');
+      console.log('[Dashboard] On-chain update being processed by admin...');
       const sub2 = await fetch('/api/soroban/confirm-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -166,7 +166,7 @@ export function DashboardPage() {
         }),
       });
       const res2 = await sub2.json();
-      if (!sub2.ok || !res2.success) throw new Error('Falha ao atualizar contrato pelo Admin: ' + res2.error);
+      if (!sub2.ok || !res2.success) throw new Error('Failed to update contract by Admin: ' + res2.error);
 
       // Success Modal
       setPaymentStatusModal({
@@ -635,9 +635,22 @@ export function DashboardPage() {
                             Due: {formatDate(installment.dueDate)}
                           </div>
                           {installment.txHash === 'pix_confirmed' ? (
-                            <div className="inline-flex items-center gap-1 mt-1.5 text-[10px] text-orange-500/80">
-                              <Anchor className="w-3 h-3" />
-                              Liquidado via Âncora Pix
+                            <div className="flex flex-col mt-1.5 space-y-1">
+                              <div className="inline-flex items-center gap-1 text-[10px] text-orange-500/80">
+                                <Anchor className="w-3 h-3" />
+                                Settled via Pix Anchor
+                              </div>
+                              {state.contract?.stellarTxHash && (
+                                <a
+                                  href={`https://stellar.expert/explorer/testnet/tx/${state.contract.stellarTxHash}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10px] text-green-500/80 hover:text-green-400 hover:underline"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  View receipt
+                                </a>
+                              )}
                             </div>
                           ) : installment.txHash ? (
                             <a

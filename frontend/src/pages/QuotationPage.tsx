@@ -44,8 +44,10 @@ export function QuotationPage() {
   const [usingMockData, setUsingMockData] = useState<boolean>(false);
 
   useEffect(() => {
-    actions.setSelectedAsset('USDC'); // Force USDC on mount
-  }, [actions]);
+    if (state.selectedAsset !== 'USDC') {
+      actions.setSelectedAsset('USDC'); // Force USDC on mount
+    }
+  }, [state.selectedAsset]); // Removed actions from deps to avoid infinite loop
 
   useEffect(() => {
     const fetchQuotation = async () => {
