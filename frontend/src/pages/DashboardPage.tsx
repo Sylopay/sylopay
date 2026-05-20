@@ -495,10 +495,14 @@ export function DashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="text-center p-4 bg-[#0a0a0a] rounded-xl border border-zinc-800">
                   <div className="text-2xl font-bold text-green-500">
-                    {pricingBreakdown ? `$${(pricingBreakdown.savings.vsTradionalBNPL * 2.5).toFixed(0)}` : '$180'}
+                    {pricingBreakdown
+                      ? `${pricingBreakdown.savings.vsTradionalBNPL > 0
+                          ? pricingBreakdown.savings.vsTradionalBNPL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : '0.00'} USDC`
+                      : '—'}
                   </div>
                   <div className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 mt-1">Saved vs Traditional</div>
-                  <div className="text-[10px] text-green-500/80 mt-1">Per transaction</div>
+                  <div className="text-[10px] text-green-500/80 mt-1">Per transaction in USDC</div>
                 </div>
                 <div className="text-center p-4 bg-[#0a0a0a] rounded-xl border border-zinc-800">
                   <div className="text-2xl font-bold text-indigo-400">3.5%</div>
