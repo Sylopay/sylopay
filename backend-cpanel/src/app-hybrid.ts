@@ -864,10 +864,27 @@ app.post('/api/stellar/submit-payment', async (req, res) => {
       signedXdr = signedXdr.signedTxXdr;
     }
 
+    const innerTx = TransactionBuilder.fromXDR(signedXdr, 'Test SDF Network ; September 2015') as Transaction;
+
+    let finalTx: any = innerTx;
+    const masterSecret = process.env.STELLAR_MASTER_SECRET;
+    if (masterSecret) {
+      console.log('[Stellar] Sponsoring classic USDC payment transaction fee via Fee Bump!');
+      const sponsorKeypair = Keypair.fromSecret(masterSecret);
+      const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
+        sponsorKeypair,
+        '10000',
+        innerTx,
+        'Test SDF Network ; September 2015'
+      );
+      feeBumpTx.sign(sponsorKeypair);
+      finalTx = feeBumpTx;
+    }
+
     const response = await fetch(`${HORIZON_URL}/transactions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ tx: signedXdr }),
+      body: new URLSearchParams({ tx: finalTx.toXDR() }),
     });
 
     const data: any = await response.json();
