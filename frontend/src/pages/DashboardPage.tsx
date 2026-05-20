@@ -763,17 +763,6 @@ export function DashboardPage() {
                     <div>
                       <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Balances</label>
                       <div className="space-y-2 mt-2">
-                        <div className="flex justify-between items-center bg-[#0a0a0a] border border-zinc-800 rounded-lg px-3 py-2">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-6 h-6 bg-yellow-500/20 rounded-full flex items-center justify-center border border-yellow-500/30">
-                              <span className="text-[10px] font-bold text-yellow-500">★</span>
-                            </div>
-                            <span className="text-xs font-semibold text-zinc-300">XLM</span>
-                          </div>
-                          <span className="text-sm font-bold text-zinc-100">
-                            {parseFloat(accountInfo.balance).toFixed(2)}
-                          </span>
-                        </div>
                         {accountInfo.balances?.filter(b => b.asset_code === 'USDC').map((usdc, idx) => (
                           <div key={idx} className="flex justify-between items-center bg-blue-950/20 border border-blue-900/40 rounded-lg px-3 py-2">
                             <div className="flex items-center space-x-2">
@@ -806,7 +795,7 @@ export function DashboardPage() {
                                   Account not active
                                 </div>
                                 <p className="text-[10px] text-red-400/80 mb-3 leading-relaxed">
-                                  Your account needs to be funded with XLM to perform on-chain payments and establish trustlines.
+                                  Your account must be initialized on the blockchain to establish a USDC trustline. SyloPay covers all network fees!
                                 </p>
                                 <Button
                                   size="sm"

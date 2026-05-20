@@ -283,7 +283,7 @@ export function PixPayment({
             size="sm" 
             onClick={() => {
               setStatus('confirmed');
-              onConfirmed(`sim_tx_investor_${Date.now()}`);
+              onConfirmed('pix_confirmed');
             }}
             className="border-dashed border-zinc-800 text-zinc-500 hover:text-orange-400 hover:border-orange-500/40 hover:bg-orange-500/5 text-[10px] h-7 px-3 flex items-center gap-1.5"
           >
