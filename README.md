@@ -189,10 +189,16 @@ We offer robust, technical specification materials for the SyloPay ecosystem:
 
 ## 💎 Core Protocol Features
 
-1.  **USDC-Only Pricing**: Standardized currency interface. Products priced in BRL are automatically converted to USDC at a constant conversion rate (`5.7`) to ensure stable checkout agreements.
-2.  **Gasless Installment Settlement**: Administrative sponsorship model. The user pays only the installment amount in USDC. The Stellar transaction fee (XLM) for contract state updates (`pagar_parcela`) is sponsored and paid by the administrator (`admin.require_auth()`).
-3.  **Blend Protocol Live APR**: Real-time pricing intelligence. The `/api/quotation` endpoint queries simulated live Blend borrowing rates (ranging from 1.5% to 3.5%) to calculate interest plans transparently.
-4.  **Etherfuse Sandbox Integration**: Automated BRL/Pix on-ramping. The gateway provisions a bank account for each customer via `POST /ramp/bank-account` to generate a valid `bankAccountId` before generating the Pix payment QR code.
+1.  **USDC-Only Pricing**: Standardized currency interface. Products priced in BRL are automatically converted to USDC at a fixed rate (`5.7`) to ensure stable checkout agreements across all pages.
+2.  **Transparent Fee Model**: All fees are applied and surfaced clearly to the user in every step of the checkout:
+    - **Consumer Rate**: `Blend borrow rate × 0.8 + 0.5%` SyloPay margin (e.g. Blend 2.3% → consumer pays **2.34% APR**).
+    - **Flat Platform Fee**: `USDC 0.25` per contract, shown as a separate line in the Order Summary.
+    - **Merchant Fee**: `3.5%` of the transaction, charged to the merchant (not the consumer).
+    - The `QuotationPage` and `ContractPage` both show: Product Price → Interest Rate → Interest Amount → SyloPay Fee → Each Payment → **Total You'll Pay**.
+3.  **Gasless Installment Settlement**: Administrative sponsorship model. The user pays only the USDC installment principal. The Stellar network fee (XLM) for `pagar_parcela` calls is covered by the SyloPay admin account (`admin.require_auth()`).
+4.  **Blend Protocol Live APR**: Real-time pricing intelligence. The `/api/quotation` backend endpoint generates a live Blend borrow rate (1.5%–3.5% range), applies the 20% consumer discount and the 0.5% SyloPay margin, and returns a correctly computed `totalAmount` and `installmentAmount` with interest already included.
+5.  **Freighter Wallet Guard**: The `ContractPage` checks for the Freighter browser extension on mount via `isConnected()`. If not installed, the user is automatically redirected to [https://www.freighter.app](https://www.freighter.app) with a branded loading screen — no broken wallet UI is ever shown.
+6.  **Etherfuse Sandbox Integration**: Automated BRL/Pix on-ramping. The gateway provisions a bank account for each customer via `POST /ramp/bank-account` to generate a valid `bankAccountId` before generating the Pix payment QR code.
 
 ---
 

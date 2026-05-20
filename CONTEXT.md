@@ -84,7 +84,7 @@ sylopay/
 *   **Smart Contracts**: Rust (`soroban-sdk v22`), Cargo.
 *   **Stablecoin**: USDC (Testnet).
 *   **On-Ramp Anchor (Pix)**: Etherfuse Sandbox FX API + HMAC secure cryptographic webhooks.
-*   **Web3 Wallet**: `@stellar/freighter-api` (Freighter Wallet).
+*   **Web3 Wallet**: `@stellar/freighter-api` (Freighter Wallet). Required browser extension — `ContractPage` guards with a redirect to [freighter.app](https://www.freighter.app) if not installed.
 
 ---
 
@@ -111,7 +111,37 @@ The SyloPay BNPL on-chain core is written in Rust, refactored into a comment-fre
 
 ---
 
+## 💰 Fee Model
+
+All fees are computed server-side in `/api/quotation` and reflected precisely in every step of the frontend:
+
+| Fee | Rate | Who Pays | Applied To |
+| :--- | :--- | :--- | :--- |
+| **Consumer Interest** | `Blend rate × 0.8 + 0.5%` | Customer | `totalAmount`, `installmentAmount` in quotation |
+| **SyloPay Flat Fee** | `USDC 0.25` per contract | Customer | Shown as a line item in Order Summary |
+| **Merchant Fee** | `3.5%` | Merchant | Settled off-chain by merchant acceptance |
+| **Network Fee (XLM)** | ~`0.01 XLM` | SyloPay Admin | Sponsored by `SOROBAN_ADMIN_SECRET` via `admin.require_auth()` |
+
+**QuotationPage formula** (backend `/api/quotation`):
+```
+consumerRate = blendBorrowRate × 0.8 + 0.5%
+interestAmount = principal × (consumerRate / 100)
+totalAmount = principal + interestAmount
+installmentAmount = totalAmount / numberOfInstallments
+```
+
+**ContractPage Order Summary** shows each fee as an individual row:
+- Product Price (converted BRL → USDC at `/ 5.7`)
+- Interest Rate (APR)
+- Interest Amount (`+USDC X.XX`)
+- SyloPay Fee (`USDC 0.25`)
+- Each Payment
+- **Total You'll Pay**
+
+---
+
 ## 📡 Gateway API Server Endpoints (backend-cpanel)
+
 
 ### Infrastructure & Stellar
 *   `GET /health`: Operational health status.
@@ -139,6 +169,7 @@ The SyloPay BNPL on-chain core is written in Rust, refactored into a comment-fre
 
 ## 🎯 Integrations & Advanced Protocols
 
-1.  **DeFi Integrations**: Queries simulated Blend Protocol pools borrow rates (1.5% to 3.5%) to calculate interest rates (80% of borrow rate) dynamically vs traditional credit card rates.
-2.  **HTTP 402 / x402 Specification**: Supports the Web Monetization standard. External marketplaces can resolve merchant vaults dynamically via standardized HTTP headers.
-3.  **USDC-Only Checkout Experience**: Eliminates checkout pricing ambiguity. Converts all catalog pricing to USDC values at checkout using a fixed rate (`5.7`) and calculates payment installments in USDC.
+1.  **DeFi Integrations**: Queries simulated Blend Protocol pools borrow rates (1.5% to 3.5%). Consumer rate = `borrowRate × 0.8 + 0.5%` SyloPay margin. The `totalAmount` and `installmentAmount` returned by `/api/quotation` already include the compounded interest — no hidden fees.
+2.  **Freighter Wallet Guard**: `ContractPage` calls `isConnected()` from `@stellar/freighter-api` on mount. If the extension is absent, a branded loading screen is shown and the user is immediately redirected to [https://www.freighter.app](https://www.freighter.app). Prevents any broken wallet connection UI.
+3.  **HTTP 402 / x402 Specification**: Supports the Web Monetization standard. External marketplaces can resolve merchant vaults dynamically via standardized HTTP headers.
+4.  **USDC-Only Checkout Experience**: Eliminates checkout pricing ambiguity. Converts all catalog pricing from BRL to USDC at a fixed `5.7` rate and calculates all installment amounts in USDC.
