@@ -14,6 +14,7 @@ import pricingService, { PricingBreakdown } from '../services/pricingService';
 
 import { LegalModal } from '../components/LegalModel';
 import { SyloPayPrivacyPolicyContent, TermsOfServiceContent } from '../content/LegalContent';
+import { isConnected } from '@stellar/freighter-api';
 
 
 // ─── Utilitários de Máscara ──────────────────────────────────────────────────
@@ -40,6 +41,22 @@ const isValidCPF = (cpf: string) => cpf.trim().length > 0;
 export function ContractPage() {
   const { state, actions } = useBNPL();
   const navigate = useNavigate();
+
+  // Redirect to Freighter official page if not installed
+  useEffect(() => {
+    const checkFreighterWallet = async () => {
+      try {
+        const hasFreighter = await isConnected();
+        if (!hasFreighter) {
+          window.location.href = 'https://www.freighter.app';
+        }
+      } catch (error) {
+        console.error('Error checking Freighter presence:', error);
+        window.location.href = 'https://www.freighter.app';
+      }
+    };
+    checkFreighterWallet();
+  }, []);
   
   const [formData, setFormData] = useState<Customer>(
     state.customer || {
