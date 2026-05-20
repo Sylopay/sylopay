@@ -66,6 +66,10 @@ function getAdminKeypair(): Keypair {
   return Keypair.fromSecret(secret);
 }
 
+export function getAdminPublicKey(): string {
+  return getAdminKeypair().publicKey();
+}
+
 // ─── Helper: submit de transação Soroban ─────────────────────────────────────
 
 async function invokeContract(

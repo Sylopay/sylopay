@@ -599,9 +599,11 @@ app.post('/api/soroban/create-contract', async (req, res) => {
 
     const totalUsdcStroops = Math.round(totalAmountUsdc * 10_000_000);
 
+    const adminPublicKey = sorobanService.getAdminPublicKey();
+
     const result = await sorobanService.criarContratoBNPL(
       merchantPublicKey || process.env.STELLAR_MERCHANT_PUBLIC || '',
-      customerPublicKey,
+      adminPublicKey,
       totalUsdcStroops,
       installmentsCount
     );
@@ -899,8 +901,20 @@ app.get('/api/soroban/contracts/cliente/:publicKey', async (req, res) => {
   try {
     const { publicKey } = req.params;
 
-    // 1. Get IDs from chain
-    const contractIds = await sorobanService.listarContratosCliente(publicKey);
+    // 1. Get contract IDs for this client from local database
+    const localContractIds = contracts
+      .filter(c => c.customerPublicKey === publicKey)
+      .map(c => c.id);
+
+    // If local database has no records for this client, fall back to checking on-chain directly
+    let contractIds = localContractIds;
+    if (contractIds.length === 0) {
+      try {
+        contractIds = await sorobanService.listarContratosCliente(publicKey);
+      } catch (e) {
+        console.warn('[Soroban] Failed to fetch on-chain contract IDs for client:', e);
+      }
+    }
 
     // 2. Fetch details for each contract ID found on-chain
     const onChainContracts = await Promise.all(
