@@ -905,7 +905,7 @@ app.post('/api/stellar/submit-payment', async (req, res) => {
       const sponsorKeypair = Keypair.fromSecret(masterSecret);
       const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
         sponsorKeypair,
-        '10000',
+        '100000',
         innerTx,
         'Test SDF Network ; September 2015'
       );
