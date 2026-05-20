@@ -591,6 +591,54 @@ app.post('/api/soroban/prepare-contract', async (req, res) => {
   }
 });
 
+// POST /api/soroban/create-contract
+// Cria o contrato BNPL on-chain diretamente assinado pelo orquestrador/admin da SyloPay (sem Freighter do cliente)
+app.post('/api/soroban/create-contract', async (req, res) => {
+  try {
+    const { merchantPublicKey, customerPublicKey, totalAmountUsdc, installmentsCount } = req.body;
+
+    const totalUsdcStroops = Math.round(totalAmountUsdc * 10_000_000);
+
+    const result = await sorobanService.criarContratoBNPL(
+      merchantPublicKey || process.env.STELLAR_MERCHANT_PUBLIC || '',
+      customerPublicKey,
+      totalUsdcStroops,
+      installmentsCount
+    );
+
+    // Registra no banco local
+    const contract = {
+      id: result.contratoId,
+      merchantPublicKey: merchantPublicKey || process.env.STELLAR_MERCHANT_PUBLIC || '',
+      customerPublicKey,
+      totalAmount: totalAmountUsdc,
+      installmentsCount,
+      installmentAmount: totalAmountUsdc / installmentsCount,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      installments: Array.from({ length: installmentsCount }, (_, i) => ({
+        number: i + 1,
+        amount: totalAmountUsdc / installmentsCount,
+        status: 'pending',
+        txHash: null
+      }))
+    };
+
+    contracts.push(contract);
+    saveContracts();
+
+    res.json({
+      success: true,
+      contratoId: result.contratoId,
+      txHash: result.txHash,
+      explorerUrl: `https://stellar.expert/explorer/testnet/tx/${result.txHash}`
+    });
+  } catch (error) {
+    console.error('[Route] /api/soroban/create-contract error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Error creating contract' });
+  }
+});
+
 // POST /api/soroban/submit-contract
 // Recebe XDR assinado, submete e registra o contrato
 app.post('/api/soroban/submit-contract', async (req, res) => {

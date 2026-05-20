@@ -230,6 +230,47 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
+      '/api/soroban/create-contract': {
+        post: {
+          summary: 'Create contract on Soroban directly (Server Signed)',
+          description: 'Triggers on-chain BNPL contract registration on Soroban using the orchestrator admin keypair (avoiding Freighter wallet signature requirements).',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['customerPublicKey', 'totalAmountUsdc', 'installmentsCount'],
+                  properties: {
+                    merchantPublicKey: { type: 'string', example: 'GB...' },
+                    customerPublicKey: { type: 'string', example: 'GC...' },
+                    totalAmountUsdc: { type: 'number', example: 120.00 },
+                    installmentsCount: { type: 'number', example: 3 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: 'Contract registered on-chain successfully.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      contratoId: { type: 'string', example: 'BNPL-1001-...' },
+                      txHash: { type: 'string', example: 'abc...' },
+                      explorerUrl: { type: 'string', example: 'https://...' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       '/api/stellar/process-payment': {
         post: {
           summary: 'Process installment settlement on-chain',
