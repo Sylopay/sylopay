@@ -42,6 +42,8 @@ export function ContractPage() {
   const { state, actions } = useBNPL();
   const navigate = useNavigate();
 
+  const [isCheckingWallet, setIsCheckingWallet] = useState(true);
+
   // Redirect to Freighter official page if not installed
   useEffect(() => {
     const checkFreighterWallet = async () => {
@@ -49,6 +51,8 @@ export function ContractPage() {
         const hasFreighter = await isConnected();
         if (!hasFreighter) {
           window.location.href = 'https://www.freighter.app';
+        } else {
+          setIsCheckingWallet(false);
         }
       } catch (error) {
         console.error('Error checking Freighter presence:', error);
@@ -143,6 +147,31 @@ export function ContractPage() {
     actions.nextStep();
     navigate('/processing');
   };
+
+  if (isCheckingWallet) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] text-zinc-200 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className="flex justify-center">
+            <Logo size="lg" className="text-orange-500 animate-pulse" />
+          </div>
+          <div className="space-y-3">
+            <h2 className="text-xl font-bold text-zinc-100">Verifying Freighter Wallet</h2>
+            <p className="text-sm text-zinc-400">
+              SyloPay BNPL requires the Freighter extension to securely sign transactions on the Stellar network.
+            </p>
+          </div>
+          <div className="flex flex-col items-center justify-center space-y-3">
+            <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs text-zinc-500">Checking installation...</span>
+          </div>
+          <p className="text-xs text-zinc-600">
+            If you don't have Freighter installed, you will be redirected to the download page automatically.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-zinc-200">
