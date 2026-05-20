@@ -609,9 +609,24 @@ app.post('/api/soroban/submit-contract', async (req, res) => {
     }
 
     const rpc = new SorobanRpc.Server(process.env.SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org');
-    const tx = TransactionBuilder.fromXDR(xdrString, 'Test SDF Network ; September 2015');
+    const innerTx = TransactionBuilder.fromXDR(xdrString, 'Test SDF Network ; September 2015') as Transaction;
 
-    const sendResult = await rpc.sendTransaction(tx);
+    let finalTx: any = innerTx;
+    const masterSecret = process.env.STELLAR_MASTER_SECRET;
+    if (masterSecret) {
+      console.log('[Soroban] Sponsoring transaction fee via Fee Bump!');
+      const sponsorKeypair = Keypair.fromSecret(masterSecret);
+      const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
+        sponsorKeypair,
+        '2000000',
+        innerTx,
+        'Test SDF Network ; September 2015'
+      );
+      feeBumpTx.sign(sponsorKeypair);
+      finalTx = feeBumpTx;
+    }
+
+    const sendResult = await rpc.sendTransaction(finalTx);
     if (sendResult.status === 'ERROR') {
       throw new Error(`Error submitting signed tx: ${JSON.stringify(sendResult.errorResult)}`);
     }
@@ -688,9 +703,24 @@ app.post('/api/soroban/submit-transaction', async (req, res) => {
     }
 
     const rpc = new SorobanRpc.Server(process.env.SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org');
-    const tx = TransactionBuilder.fromXDR(xdrString, 'Test SDF Network ; September 2015');
+    const innerTx = TransactionBuilder.fromXDR(xdrString, 'Test SDF Network ; September 2015') as Transaction;
 
-    const sendResult = await rpc.sendTransaction(tx);
+    let finalTx: any = innerTx;
+    const masterSecret = process.env.STELLAR_MASTER_SECRET;
+    if (masterSecret) {
+      console.log('[Soroban] Sponsoring transaction fee via Fee Bump!');
+      const sponsorKeypair = Keypair.fromSecret(masterSecret);
+      const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
+        sponsorKeypair,
+        '2000000',
+        innerTx,
+        'Test SDF Network ; September 2015'
+      );
+      feeBumpTx.sign(sponsorKeypair);
+      finalTx = feeBumpTx;
+    }
+
+    const sendResult = await rpc.sendTransaction(finalTx);
     if (sendResult.status === 'ERROR') {
       throw new Error(`Error submitting tx: ${JSON.stringify(sendResult.errorResult)}`);
     }
