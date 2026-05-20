@@ -280,16 +280,31 @@ app.post('/api/quotation', async (req, res) => {
     // Simulated Blend Protocol live rate: 1.5–3.5% borrow range
     const blendBorrowRate = 1.5 + Math.random() * 2; // e.g. 2.31%
     // Consumer rate = 80% of Blend borrow rate (SyloPay discount vs direct DeFi)
-    const consumerRate = (blendBorrowRate * 0.8).toFixed(2);   // e.g. 1.85%
+    const consumerRate = blendBorrowRate * 0.8;   // e.g. 1.85%
+
+    // SyloPay platform fees
+    const MERCHANT_FEE_RATE = 0.035;  // 3.5% charged to merchant (included in product price)
+    const SYLOPAY_CONSUMER_MARGIN = 0.005; // 0.5% SyloPay margin on consumer installments
+    const TRANSACTION_FEE_USDC = 0.25; // flat $0.25 USDC per contract
+
+    const principal = parseFloat(amount); // BRL amount
 
     const options = [2, 3, 4].map(count => {
-      const installmentValue = (parseFloat(amount) / count).toFixed(2);
+      // Interest only applies for installment plans (not 1x)
+      const interestRate = consumerRate + SYLOPAY_CONSUMER_MARGIN; // total consumer rate
+      const interestAmount = principal * (interestRate / 100);
+      const totalWithInterest = principal + interestAmount;
+      const installmentValue = (totalWithInterest / count).toFixed(2);
+
       return {
         installmentsCount: count,
         installmentAmount: installmentValue,
-        totalAmount: amount,
+        totalAmount: totalWithInterest.toFixed(2),
         frequencyDays: 30,
-        interestRate: consumerRate,   // Live Blend-derived rate
+        interestRate: interestRate.toFixed(2),
+        interestAmount: interestAmount.toFixed(2),
+        merchantFeeRate: (MERCHANT_FEE_RATE * 100).toFixed(1),
+        transactionFee: TRANSACTION_FEE_USDC,
         blendBorrowRate: parseFloat(blendBorrowRate.toFixed(2)),
         description: `${count}x of BRL ${installmentValue}`
       };
@@ -300,7 +315,9 @@ app.post('/api/quotation', async (req, res) => {
       originalAmount: amount,
       options,
       currency: 'BRL',
+      consumerRate: parseFloat(consumerRate.toFixed(2)),
       blendBorrowRate: parseFloat(blendBorrowRate.toFixed(2)),
+      merchantFeeRate: (MERCHANT_FEE_RATE * 100).toFixed(1),
       generatedAt: new Date().toISOString()
     });
   } catch (error) {

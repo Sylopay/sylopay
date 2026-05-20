@@ -18,15 +18,19 @@ import Logo from '../components/Logo';
 
 function generateMockQuotation(amount: string, maxInstallments: number): QuotationOption[] {
   const usdcTotal = parseFloat(amount) / 5.7;
+  // Apply Blend-simulated consumer rate (2.0%) + SyloPay margin (0.5%) = 2.5%
+  const CONSUMER_RATE = 0.025;
   const options: QuotationOption[] = [];
   for (let installments = 2; installments <= maxInstallments; installments++) {
-    const installmentAmount = (usdcTotal / installments).toFixed(7);
+    const interestAmount = usdcTotal * CONSUMER_RATE;
+    const totalWithInterest = usdcTotal + interestAmount;
+    const installmentAmount = (totalWithInterest / installments).toFixed(7);
     options.push({
       installmentsCount: installments,
       installmentAmount,
-      totalAmount: usdcTotal.toFixed(7),
+      totalAmount: totalWithInterest.toFixed(7),
       frequencyDays: 30,
-      interestRate: '2.5',
+      interestRate: (CONSUMER_RATE * 100).toFixed(2),
       description: `${installments}x of ${parseFloat(installmentAmount).toFixed(2)} USDC`
     });
   }
@@ -270,6 +274,9 @@ export function QuotationPage() {
                       <DollarSign className="w-3 h-3" />
                       Total: <span className="font-semibold text-foreground ml-1">USDC {parseFloat(option.totalAmount).toFixed(2)}</span>
                     </span>
+                    <span className="flex items-center gap-1 text-zinc-500">
+                      Principal: USDC {usdcTotal.toFixed(2)}
+                    </span>
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       Every {option.frequencyDays || 30} days
@@ -279,9 +286,12 @@ export function QuotationPage() {
                       {(parseFloat(option.interestRate) > 0
                         ? parseFloat(option.interestRate)
                         : blendRate
-                        ? blendRate.borrowRate * 0.8
-                        : 2.0
+                        ? blendRate.borrowRate * 0.8 + 0.5
+                        : 2.5
                       ).toFixed(2)}% APR
+                    </span>
+                    <span className="text-green-500/80">
+                      +USDC {(parseFloat(option.totalAmount) - usdcTotal).toFixed(2)} interest
                     </span>
                   </div>
 

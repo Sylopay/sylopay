@@ -452,15 +452,6 @@ export function ContractPage() {
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-zinc-500">Each Payment:</span>
-                    <span className="font-medium text-zinc-300">
-                      USDC {state.selectedPlan
-                        ? parseFloat(state.selectedPlan.installmentAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                        : '0.00'}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
                     <span className="text-zinc-500">Interest Rate:</span>
                     <span className="font-medium text-green-500">
                       {pricingBreakdown
@@ -471,13 +462,37 @@ export function ContractPage() {
                     </span>
                   </div>
 
+                  {state.product && state.selectedPlan && (
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Interest Amount:</span>
+                      <span className="font-medium text-amber-400">
+                        +USDC {(
+                          parseFloat(state.selectedPlan.totalAmount) -
+                          parseFloat(state.product.price) / 5.7
+                        ).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">SyloPay Fee:</span>
+                    <span className="font-medium text-zinc-400">USDC 0.25</span>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Each Payment:</span>
+                    <span className="font-medium text-zinc-300">
+                      USDC {state.selectedPlan
+                        ? parseFloat(state.selectedPlan.installmentAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '0.00'}
+                    </span>
+                  </div>
+
                   <div className="border-t border-zinc-800/50 pt-3 mt-3">
                     <div className="flex justify-between font-bold text-sm">
                       <span className="text-zinc-200">Total You'll Pay:</span>
                       <span className="text-orange-500">
-                        USDC {pricingBreakdown
-                          ? (pricingBreakdown.totalConsumerPayment / 5.7).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                          : state.selectedPlan
+                        USDC {state.selectedPlan
                           ? parseFloat(state.selectedPlan.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                           : '0.00'}
                       </span>
