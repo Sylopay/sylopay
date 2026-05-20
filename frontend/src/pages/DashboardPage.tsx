@@ -3,7 +3,7 @@ import { DEMO_PRODUCT } from '../types';
 import {
   ExternalLink, Calendar, DollarSign, CheckCircle, Clock, RefreshCw,
   Home, TrendingUp, Wallet, Activity, BarChart3, Target, Award, Link2, AlertCircle, X, ScrollText, Zap,
-  Shield
+  Shield, Anchor
 } from 'lucide-react';
 import { useBNPL } from '../hooks/useBNPL';
 import { Button } from '../components/ui/button';
@@ -58,7 +58,7 @@ export function DashboardPage() {
   // Modal States
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [pendingPaymentInstallment, setPendingPaymentInstallment] = useState<number | null>(null);
-  const [paymentStatusModal, setPaymentStatusModal] = useState<{ open: boolean; type: 'success' | 'error'; message: string; txHash?: string }>({ open: false, type: 'success', message: '' });
+  const [paymentStatusModal, setPaymentStatusModal] = useState<{ open: boolean; type: 'success' | 'error'; title?: string; message: string; txHash?: string }>({ open: false, type: 'success', message: '' });
 
   const sorobanContratoRef = useRef<SorobanContrato | null>(null);
   useEffect(() => {
@@ -141,10 +141,10 @@ export function DashboardPage() {
       const PASSPHRASE = 'Test SDF Network ; September 2015';
 
       // 1st Signature
-      console.log('[Dashboard] Assinando pagamento USDC...');
+      console.log('[Dashboard] Signing USDC payment...');
       const sig1 = await signTransaction(xdrPayment, { networkPassphrase: PASSPHRASE }) as any;
       const signedPayment = typeof sig1 === 'string' ? sig1 : sig1.signedTxXdr;
-      if (!signedPayment) throw new Error('Falha ao assinar TX de pagamento');
+      if (!signedPayment) throw new Error('Failed to sign payment transaction');
 
       const sub1 = await fetch('/api/stellar/submit-payment', {
         method: 'POST',
@@ -152,21 +152,21 @@ export function DashboardPage() {
         body: JSON.stringify({ signedXdr: signedPayment }),
       });
       const res1 = await sub1.json();
-      if (!sub1.ok || !res1.success) throw new Error('Falha no pagamento USDC: ' + (res1.error || JSON.stringify(res1)));
+      if (!sub1.ok || !res1.success) throw new Error('USDC payment failed: ' + (res1.error || JSON.stringify(res1)));
 
-      // 2nd Signature
-      console.log('[Dashboard] Assinando atualização on-chain...');
-      const sig2 = await signTransaction(xdrSoroban, { networkPassphrase: PASSPHRASE }) as any;
-      const signedSoroban = typeof sig2 === 'string' ? sig2 : sig2.signedTxXdr;
-      if (!signedSoroban) throw new Error('Falha ao assinar TX Soroban');
-
-      const sub2 = await fetch('/api/soroban/submit-transaction', {
+      // 2nd Step: Backend confirms payment and updates smart contract (Admin Signature)
+      console.log('[Dashboard] On-chain update being processed by admin...');
+      const sub2 = await fetch('/api/soroban/confirm-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signedXdr: signedSoroban }),
+        body: JSON.stringify({
+          contratoId: sorobanContrato.id,
+          numeroParcela: pendingPaymentInstallment,
+          txHash: res1.txHash,
+        }),
       });
       const res2 = await sub2.json();
-      if (!sub2.ok || !res2.success) throw new Error('Falha ao atualizar contrato: ' + res2.error);
+      if (!sub2.ok || !res2.success) throw new Error('Failed to update contract by Admin: ' + res2.error);
 
       // Success Modal
       setPaymentStatusModal({
@@ -178,12 +178,17 @@ export function DashboardPage() {
       
       await handleRefresh();
     } catch (err) {
-      console.error('[Dashboard] Erro:', err);
-      // Error Modal
+      console.error('[Dashboard] Error:', err);
+      // Detect user rejection from Freighter wallet
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isUserCancelled = /user rejected|cancelled|denied|declined/i.test(errMsg);
       setPaymentStatusModal({
         open: true,
-        type: 'error',
-        message: 'Payment failed: ' + (err instanceof Error ? err.message : 'Unknown error')
+        type: isUserCancelled ? 'error' : 'error',
+        title: isUserCancelled ? 'Payment Cancelled' : 'Payment Failed',
+        message: isUserCancelled
+          ? 'You cancelled the transaction in your Freighter wallet. No funds were moved. You can try again whenever you are ready.'
+          : 'Payment failed: ' + errMsg
       });
     } finally {
       setRefreshing(false);
@@ -273,14 +278,14 @@ export function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-zinc-200 selection:bg-orange-500/30">
-      {/* DOUBLE SIGNATURE EXPLANATION MODAL */}
+      {/* SIGNATURE EXPLANATION MODAL */}
       {isSignModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#121212] border border-zinc-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-5 border-b border-zinc-800 flex justify-between items-center">
               <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
                 <Shield className="w-5 h-5 text-orange-500" />
-                Wallet Signatures Required
+                Wallet Signature Required
               </h3>
               <button onClick={() => setIsSignModalOpen(false)} className="text-zinc-500 hover:text-zinc-300">
                 <X className="w-5 h-5" />
@@ -288,7 +293,7 @@ export function DashboardPage() {
             </div>
             <div className="p-6 space-y-5">
               <p className="text-sm text-zinc-400 leading-relaxed">
-                To securely process this installment, your Freighter wallet will prompt you to approve <strong className="text-zinc-200">two separate transactions</strong>. Here is why:
+                To securely process this installment, your Freighter wallet will prompt you to approve <strong className="text-zinc-200">one transaction</strong>. Here is why:
               </p>
               
               <div className="space-y-4">
@@ -298,17 +303,17 @@ export function DashboardPage() {
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-zinc-200">Transfer USDC</h4>
-                    <p className="text-xs text-zinc-500 mt-1">First signature authorizes the actual payment of USDC from your wallet to the merchant.</p>
+                    <p className="text-xs text-zinc-500 mt-1">This signature authorizes the actual payment of USDC from your wallet to the merchant.</p>
                   </div>
                 </div>
 
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-full bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-bold text-orange-400">2</span>
+                    <CheckCircle className="w-4 h-4 text-orange-400" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-semibold text-zinc-200">Update Smart Contract</h4>
-                    <p className="text-xs text-zinc-500 mt-1">Second signature writes the digital receipt into the Soroban smart contract, officially marking the installment as "Paid" on the blockchain.</p>
+                    <h4 className="text-sm font-semibold text-zinc-200">Automatic Smart Contract Update</h4>
+                    <p className="text-xs text-zinc-500 mt-1">The smart contract will be automatically updated by the SyloPay network without requiring any XLM gas fees from your wallet.</p>
                   </div>
                 </div>
               </div>
@@ -338,7 +343,7 @@ export function DashboardPage() {
               )}
               
               <h3 className={`text-lg font-bold mb-2 ${paymentStatusModal.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-                {paymentStatusModal.type === 'success' ? 'Success!' : 'Transaction Failed'}
+                {paymentStatusModal.title ?? (paymentStatusModal.type === 'success' ? 'Success!' : 'Transaction Failed')}
               </h3>
               
               <p className="text-sm text-zinc-400 mb-6">
@@ -490,10 +495,14 @@ export function DashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="text-center p-4 bg-[#0a0a0a] rounded-xl border border-zinc-800">
                   <div className="text-2xl font-bold text-green-500">
-                    {pricingBreakdown ? `$${(pricingBreakdown.savings.vsTradionalBNPL * 2.5).toFixed(0)}` : '$180'}
+                    {pricingBreakdown
+                      ? `${pricingBreakdown.savings.vsTradionalBNPL > 0
+                          ? pricingBreakdown.savings.vsTradionalBNPL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : '0.00'} USDC`
+                      : '—'}
                   </div>
                   <div className="text-[11px] uppercase tracking-wider font-semibold text-zinc-500 mt-1">Saved vs Traditional</div>
-                  <div className="text-[10px] text-green-500/80 mt-1">Per transaction</div>
+                  <div className="text-[10px] text-green-500/80 mt-1">Per transaction in USDC</div>
                 </div>
                 <div className="text-center p-4 bg-[#0a0a0a] rounded-xl border border-zinc-800">
                   <div className="text-2xl font-bold text-indigo-400">3.5%</div>
@@ -634,7 +643,25 @@ export function DashboardPage() {
                           <div className="text-xs text-zinc-500 mt-0.5">
                             Due: {formatDate(installment.dueDate)}
                           </div>
-                          {installment.txHash && (
+                          {installment.txHash === 'pix_confirmed' ? (
+                            <div className="flex flex-col mt-1.5 space-y-1">
+                              <div className="inline-flex items-center gap-1 text-[10px] text-orange-500/80">
+                                <Anchor className="w-3 h-3" />
+                                Settled via Pix Anchor
+                              </div>
+                              {state.contract?.stellarTxHash && (
+                                <a
+                                  href={`https://stellar.expert/explorer/testnet/tx/${state.contract.stellarTxHash}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10px] text-green-500/80 hover:text-green-400 hover:underline"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  View receipt
+                                </a>
+                              )}
+                            </div>
+                          ) : installment.txHash ? (
                             <a
                               href={installment.explorerUrl}
                               target="_blank"
@@ -644,7 +671,7 @@ export function DashboardPage() {
                               <ExternalLink className="w-3 h-3" />
                               View receipt
                             </a>
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
@@ -745,17 +772,6 @@ export function DashboardPage() {
                     <div>
                       <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Balances</label>
                       <div className="space-y-2 mt-2">
-                        <div className="flex justify-between items-center bg-[#0a0a0a] border border-zinc-800 rounded-lg px-3 py-2">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-6 h-6 bg-yellow-500/20 rounded-full flex items-center justify-center border border-yellow-500/30">
-                              <span className="text-[10px] font-bold text-yellow-500">★</span>
-                            </div>
-                            <span className="text-xs font-semibold text-zinc-300">XLM</span>
-                          </div>
-                          <span className="text-sm font-bold text-zinc-100">
-                            {parseFloat(accountInfo.balance).toFixed(2)}
-                          </span>
-                        </div>
                         {accountInfo.balances?.filter(b => b.asset_code === 'USDC').map((usdc, idx) => (
                           <div key={idx} className="flex justify-between items-center bg-blue-950/20 border border-blue-900/40 rounded-lg px-3 py-2">
                             <div className="flex items-center space-x-2">
@@ -788,7 +804,7 @@ export function DashboardPage() {
                                   Account not active
                                 </div>
                                 <p className="text-[10px] text-red-400/80 mb-3 leading-relaxed">
-                                  Your account needs to be funded with XLM to perform on-chain payments and establish trustlines.
+                                  Your account must be initialized on the blockchain to establish a USDC trustline. SyloPay covers all network fees!
                                 </p>
                                 <Button
                                   size="sm"

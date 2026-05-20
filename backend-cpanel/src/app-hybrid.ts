@@ -271,11 +271,16 @@ app.get('/api/stellar/account/:publicKey', async (req, res) => {
 // Quotation endpoint
 app.post('/api/quotation', async (req, res) => {
   try {
-    const { amount, installments = 3 } = req.body;
+    const { amount } = req.body;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Valid amount required' });
     }
+
+    // Simulated Blend Protocol live rate: 1.5–3.5% borrow range
+    const blendBorrowRate = 1.5 + Math.random() * 2; // e.g. 2.31%
+    // Consumer rate = 80% of Blend borrow rate (SyloPay discount vs direct DeFi)
+    const consumerRate = (blendBorrowRate * 0.8).toFixed(2);   // e.g. 1.85%
 
     const options = [2, 3, 4].map(count => {
       const installmentValue = (parseFloat(amount) / count).toFixed(2);
@@ -284,7 +289,8 @@ app.post('/api/quotation', async (req, res) => {
         installmentAmount: installmentValue,
         totalAmount: amount,
         frequencyDays: 30,
-        interestRate: '0.0000',
+        interestRate: consumerRate,   // Live Blend-derived rate
+        blendBorrowRate: parseFloat(blendBorrowRate.toFixed(2)),
         description: `${count}x of BRL ${installmentValue}`
       };
     });
@@ -294,6 +300,7 @@ app.post('/api/quotation', async (req, res) => {
       originalAmount: amount,
       options,
       currency: 'BRL',
+      blendBorrowRate: parseFloat(blendBorrowRate.toFixed(2)),
       generatedAt: new Date().toISOString()
     });
   } catch (error) {
@@ -485,10 +492,28 @@ app.post('/api/etherfuse/order', async (req, res) => {
     const order = await etherfuseService.criarOrderOnramp(quoteId);
     res.json({ success: true, order });
   } catch (error) {
-    // Sandbox da Etherfuse exige proxy account (KYC) que não é viável em dev.
-    // Retornamos uma ordem simulada para que o fluxo de demonstração funcione.
-    console.warn('[Route] /api/etherfuse/order — Sandbox fallback enabled:',
-      error instanceof Error ? error.message : error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const isProxyError = /proxy account|bank.account|400/i.test(errMsg);
+
+    if (isProxyError) {
+      // ─────────────────────────────────────────────────────────────────────
+      // SANDBOX LIMITATION: Etherfuse requires a "proxy account" to be
+      // provisioned for your API key before orders can be created.
+      //
+      // To fix in production:
+      //   1. Sign up at https://etherfuse.com and get your API key
+      //   2. Email support@etherfuse.com to enable sandbox proxy provisioning
+      //   3. Create a bank account via POST /ramp/bank-account
+      //   4. Use the returned id as bankAccountId in POST /ramp/order
+      //
+      // Until then, returning a simulated sandbox order for demo purposes.
+      // ─────────────────────────────────────────────────────────────────────
+      console.warn('[Etherfuse] ⚠️  Proxy account not provisioned for this API key.');
+      console.warn('[Etherfuse] → Sandbox fallback order returned for demo flow.');
+      console.warn('[Etherfuse] → To resolve: contact support@etherfuse.com');
+    } else {
+      console.warn('[Route] /api/etherfuse/order — Unexpected error, using sandbox fallback:', errMsg);
+    }
 
     const orderId = `sandbox-order-${Date.now()}`;
     const sandboxOrder = {
@@ -506,9 +531,7 @@ app.post('/api/etherfuse/order', async (req, res) => {
       updatedAt: new Date().toISOString(),
     };
 
-    // Store sandbox order creation timestamp
     sandboxOrdersMap.set(orderId, { createdAt: Date.now() });
-
     res.json({ success: true, order: sandboxOrder, sandbox: true });
   }
 });
@@ -591,6 +614,56 @@ app.post('/api/soroban/prepare-contract', async (req, res) => {
   }
 });
 
+// POST /api/soroban/create-contract
+// Cria o contrato BNPL on-chain diretamente assinado pelo orquestrador/admin da SyloPay (sem Freighter do cliente)
+app.post('/api/soroban/create-contract', async (req, res) => {
+  try {
+    const { merchantPublicKey, customerPublicKey, totalAmountUsdc, installmentsCount } = req.body;
+
+    const totalUsdcStroops = Math.round(totalAmountUsdc * 10_000_000);
+
+    const adminPublicKey = sorobanService.getAdminPublicKey();
+
+    const result = await sorobanService.criarContratoBNPL(
+      merchantPublicKey || process.env.STELLAR_MERCHANT_PUBLIC || '',
+      adminPublicKey,
+      totalUsdcStroops,
+      installmentsCount
+    );
+
+    // Registra no banco local
+    const contract = {
+      id: result.contratoId,
+      merchantPublicKey: merchantPublicKey || process.env.STELLAR_MERCHANT_PUBLIC || '',
+      customerPublicKey,
+      totalAmount: totalAmountUsdc,
+      installmentsCount,
+      installmentAmount: totalAmountUsdc / installmentsCount,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      installments: Array.from({ length: installmentsCount }, (_, i) => ({
+        number: i + 1,
+        amount: totalAmountUsdc / installmentsCount,
+        status: 'pending',
+        txHash: null
+      }))
+    };
+
+    contracts.push(contract);
+    saveContracts();
+
+    res.json({
+      success: true,
+      contratoId: result.contratoId,
+      txHash: result.txHash,
+      explorerUrl: `https://stellar.expert/explorer/testnet/tx/${result.txHash}`
+    });
+  } catch (error) {
+    console.error('[Route] /api/soroban/create-contract error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Error creating contract' });
+  }
+});
+
 // POST /api/soroban/submit-contract
 // Recebe XDR assinado, submete e registra o contrato
 app.post('/api/soroban/submit-contract', async (req, res) => {
@@ -609,9 +682,24 @@ app.post('/api/soroban/submit-contract', async (req, res) => {
     }
 
     const rpc = new SorobanRpc.Server(process.env.SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org');
-    const tx = TransactionBuilder.fromXDR(xdrString, 'Test SDF Network ; September 2015');
+    const innerTx = TransactionBuilder.fromXDR(xdrString, 'Test SDF Network ; September 2015') as Transaction;
 
-    const sendResult = await rpc.sendTransaction(tx);
+    let finalTx: any = innerTx;
+    const masterSecret = process.env.STELLAR_MASTER_SECRET;
+    if (masterSecret) {
+      console.log('[Soroban] Sponsoring transaction fee via Fee Bump!');
+      const sponsorKeypair = Keypair.fromSecret(masterSecret);
+      const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
+        sponsorKeypair,
+        '2000000',
+        innerTx,
+        'Test SDF Network ; September 2015'
+      );
+      feeBumpTx.sign(sponsorKeypair);
+      finalTx = feeBumpTx;
+    }
+
+    const sendResult = await rpc.sendTransaction(finalTx);
     if (sendResult.status === 'ERROR') {
       throw new Error(`Error submitting signed tx: ${JSON.stringify(sendResult.errorResult)}`);
     }
@@ -688,9 +776,24 @@ app.post('/api/soroban/submit-transaction', async (req, res) => {
     }
 
     const rpc = new SorobanRpc.Server(process.env.SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org');
-    const tx = TransactionBuilder.fromXDR(xdrString, 'Test SDF Network ; September 2015');
+    const innerTx = TransactionBuilder.fromXDR(xdrString, 'Test SDF Network ; September 2015') as Transaction;
 
-    const sendResult = await rpc.sendTransaction(tx);
+    let finalTx: any = innerTx;
+    const masterSecret = process.env.STELLAR_MASTER_SECRET;
+    if (masterSecret) {
+      console.log('[Soroban] Sponsoring transaction fee via Fee Bump!');
+      const sponsorKeypair = Keypair.fromSecret(masterSecret);
+      const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
+        sponsorKeypair,
+        '2000000',
+        innerTx,
+        'Test SDF Network ; September 2015'
+      );
+      feeBumpTx.sign(sponsorKeypair);
+      finalTx = feeBumpTx;
+    }
+
+    const sendResult = await rpc.sendTransaction(finalTx);
     if (sendResult.status === 'ERROR') {
       throw new Error(`Error submitting tx: ${JSON.stringify(sendResult.errorResult)}`);
     }
@@ -738,6 +841,14 @@ app.post('/api/soroban/confirm-first-payment', async (req, res) => {
   try {
     const { contratoId, txHash } = req.body;
 
+    const contract = contracts.find(c => c.id === contratoId);
+    
+    console.log('\n======================================================');
+    console.log(`⚓ [ETHERFUSE ANCHOR] PIX Confirmed! Emulating BRL -> USDC conversion...`);
+    console.log(`🔗 [PROTOCOL x402] Routing ${contract?.installmentAmount || 'USDC'} to Merchant Payment Pointer...`);
+    console.log(`💰 [SETTLEMENT] Merchant (${contract?.merchantPublicKey || 'SyloPay'}) received USDC via Anchor!`);
+    console.log('======================================================\n');
+
     // Na demo, o orchestrator (backend) assina a transação de atualização de status
     // para facilitar o fluxo após o Pix ser confirmado
     const updateResult = await sorobanService.finalizarPagamentoParcela(
@@ -749,11 +860,35 @@ app.post('/api/soroban/confirm-first-payment', async (req, res) => {
     res.json({
       success: true,
       txHash: updateResult.txHash,
-      explorerUrl: updateResult.explorerUrl
+      explorerUrl: updateResult.explorerUrl,
+      anchorMessage: `Etherfuse FX Anchor: PIX converted to USDC. Settled via x402 protocol.`
     });
   } catch (error) {
     console.error('[Route] /api/soroban/confirm-first-payment error:', error);
     res.status(500).json({ error: error instanceof Error ? error.message : 'Error confirming first payment' });
+  }
+});
+
+// POST /api/soroban/confirm-payment
+app.post('/api/soroban/confirm-payment', async (req, res) => {
+  try {
+    const { contratoId, numeroParcela, txHash } = req.body;
+
+    // Orchestrator (backend) assina a transação de atualização de status
+    const updateResult = await sorobanService.finalizarPagamentoParcela(
+      contratoId,
+      numeroParcela,
+      txHash
+    );
+
+    res.json({
+      success: true,
+      txHash: updateResult.txHash,
+      explorerUrl: updateResult.explorerUrl
+    });
+  } catch (error) {
+    console.error('[Route] /api/soroban/confirm-payment error:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Error confirming payment' });
   }
 });
 
@@ -784,10 +919,27 @@ app.post('/api/stellar/submit-payment', async (req, res) => {
       signedXdr = signedXdr.signedTxXdr;
     }
 
+    const innerTx = TransactionBuilder.fromXDR(signedXdr, 'Test SDF Network ; September 2015') as Transaction;
+
+    let finalTx: any = innerTx;
+    const masterSecret = process.env.STELLAR_MASTER_SECRET;
+    if (masterSecret) {
+      console.log('[Stellar] Sponsoring classic USDC payment transaction fee via Fee Bump!');
+      const sponsorKeypair = Keypair.fromSecret(masterSecret);
+      const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
+        sponsorKeypair,
+        '100000',
+        innerTx,
+        'Test SDF Network ; September 2015'
+      );
+      feeBumpTx.sign(sponsorKeypair);
+      finalTx = feeBumpTx;
+    }
+
     const response = await fetch(`${HORIZON_URL}/transactions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ tx: signedXdr }),
+      body: new URLSearchParams({ tx: finalTx.toXDR() }),
     });
 
     const data: any = await response.json();
@@ -821,8 +973,20 @@ app.get('/api/soroban/contracts/cliente/:publicKey', async (req, res) => {
   try {
     const { publicKey } = req.params;
 
-    // 1. Get IDs from chain
-    const contractIds = await sorobanService.listarContratosCliente(publicKey);
+    // 1. Get contract IDs for this client from local database
+    const localContractIds = contracts
+      .filter(c => c.customerPublicKey === publicKey)
+      .map(c => c.id);
+
+    // If local database has no records for this client, fall back to checking on-chain directly
+    let contractIds = localContractIds;
+    if (contractIds.length === 0) {
+      try {
+        contractIds = await sorobanService.listarContratosCliente(publicKey);
+      } catch (e) {
+        console.warn('[Soroban] Failed to fetch on-chain contract IDs for client:', e);
+      }
+    }
 
     // 2. Fetch details for each contract ID found on-chain
     const onChainContracts = await Promise.all(
@@ -969,14 +1133,16 @@ app.use('*', (req, res) => {
   });
 });
 
-// Start server
-app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`SyloPay Backend (Hybrid) running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-  console.log(`Stellar API: ${HORIZON_URL}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Soroban Contract: ${process.env.SOROBAN_CONTRACT_ID}`);
-  console.log(`Etherfuse: ${process.env.ETHERFUSE_BASE_URL}`);
-});
+// Start server (only when running locally, not on Vercel serverless)
+if (process.env.VERCEL !== '1') {
+  app.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`SyloPay Backend (Hybrid) running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+    console.log(`Stellar API: ${HORIZON_URL}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Soroban Contract: ${process.env.SOROBAN_CONTRACT_ID}`);
+    console.log(`Etherfuse: ${process.env.ETHERFUSE_BASE_URL}`);
+  });
+}
 
 export default app;

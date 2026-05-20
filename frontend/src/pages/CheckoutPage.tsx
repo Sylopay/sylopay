@@ -149,14 +149,11 @@ export function CheckoutPage() {
 
               <div className="flex items-center space-x-4">
                 <div className="flex items-baseline space-x-2">
-                  <span className="text-2xl font-bold text-muted-foreground">BRL</span>
+                  <span className="text-2xl font-bold text-muted-foreground">USDC</span>
                   <span className="text-4xl font-bold text-foreground">
-                    {parseFloat(product.price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {(parseFloat(product.price) / 5.7).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
-                <Badge variant="outline" className="text-muted-foreground">
-  ≈ ${(parseFloat(product.price) / 5.7).toLocaleString('en-US', { maximumFractionDigits: 0 })} USD
-</Badge>
               </div>
 
               {/* Rating */}

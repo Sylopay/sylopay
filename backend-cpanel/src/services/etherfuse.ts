@@ -147,11 +147,30 @@ export async function criarQuoteOnramp(
 
 export async function criarOrderOnramp(quoteId: string): Promise<Order> {
   const orderId = randomUUID();
-  // No Sandbox, bankAccountId é obrigatório — usamos o customerId como conta de teste
+
+  // Step 1: Create (or fetch) a bank account to get a valid bankAccountId.
+  // A bankAccountId is NOT the same as customerId — it must come from /ramp/bank-account.
+  // If the Sandbox throws "Proxy account not found" it means the account hasn't been
+  // provisioned by Etherfuse yet. Contact support@etherfuse.com to enable sandbox access.
+  let bankAccountId: string;
+  try {
+    const bankAccount = await criarBankAccount(DEFAULT_CUSTOMER_ID);
+    bankAccountId = bankAccount.id;
+    console.log(`[Etherfuse] Bank account ready: ${bankAccountId}`);
+  } catch (bankErr: any) {
+    // If bank account creation also fails (e.g. proxy not provisioned yet),
+    // we throw with a clear description so the fallback in the route handler explains it.
+    throw new Error(
+      `Proxy account not provisioned. ` +
+      `This happens in sandbox when Etherfuse hasn't enabled your API key yet. ` +
+      `Original error: ${bankErr?.message}`
+    );
+  }
+
   return callEtherfuse<Order>('POST', '/ramp/order', {
     quoteId,
     orderId,
-    bankAccountId: DEFAULT_CUSTOMER_ID,
+    bankAccountId,
   });
 }
 

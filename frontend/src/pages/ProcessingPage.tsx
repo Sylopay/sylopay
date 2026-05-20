@@ -123,7 +123,7 @@ export function ProcessingPage() {
           'USDC'
         );
 
-        const prepareRes = await fetch('/api/soroban/prepare-contract', {
+        const createRes = await fetch('/api/soroban/create-contract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -134,37 +134,12 @@ export function ProcessingPage() {
           }),
         });
 
-        if (!prepareRes.ok) {
-          throw new Error('Failed to prepare contract on network');
+        if (!createRes.ok) {
+          const errData = await createRes.json();
+          throw new Error(`Failed to create contract on Soroban: ${errData.error || createRes.status}`);
         }
 
-        const { xdr } = await prepareRes.json();
-
-        let signedXdr;
-        try {
-          signedXdr = await signTransaction(xdr, { networkPassphrase: 'Test SDF Network ; September 2015' });
-        } catch (err) {
-          throw new Error('Wallet signature cancelled or failed');
-        }
-
-        const submitRes = await fetch('/api/soroban/submit-contract', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            signedXdr,
-            merchantPublicKey: DEMO_MERCHANT.publicKey,
-            customerPublicKey: state.customer.stellarPublicKey,
-            totalAmountUsdc: totalUsdc,
-            installmentsCount: state.selectedPlan.installmentsCount,
-          }),
-        });
-
-        if (!submitRes.ok) {
-          const errData = await submitRes.json();
-          throw new Error(`Failed to submit contract: ${errData.error || submitRes.status}`);
-        }
-
-        const sorobanData = await submitRes.json();
+        const sorobanData = await createRes.json();
         setSorobanContractId(sorobanData.contratoId);
         setSorobanTxHash(sorobanData.txHash);
 

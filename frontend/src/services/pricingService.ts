@@ -198,15 +198,15 @@ class PricingService {
   }
 
   formatUSDC(amount: number): string {
-    return `${amount.toFixed(7)} USDC`;
+    return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
   }
 
-  // Mock conversion for demo
+  // BRL → USDC conversion (1 USDC ≈ 5.7 BRL)
   convertToAsset(brlAmount: number, asset: 'USDC' | 'XLM'): number {
     if (asset === 'USDC') {
-      return brlAmount / 5.0; // 1 USDC = 5 BRL
+      return brlAmount / 5.7;
     }
-    return brlAmount / 0.5; // 1 XLM = 0.5 BRL
+    return brlAmount / 0.5;
   }
 
   formatPercent(rate: number): string {
