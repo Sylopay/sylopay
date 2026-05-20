@@ -14,18 +14,19 @@ import Logo from '../components/Logo';
 
 // Mock quotation generator for when API is unavailable
 function generateMockQuotation(amount: string, maxInstallments: number): QuotationOption[] {
-  const total = parseFloat(amount);
+  const brlValue = parseFloat(amount);
+  const usdcTotal = brlValue / 5.7;
   const options: QuotationOption[] = [];
   
   for (let installments = 2; installments <= maxInstallments; installments++) {
-    const installmentAmount = (total / installments).toFixed(7);
+    const installmentAmount = (usdcTotal / installments).toFixed(7);
     options.push({
       installmentsCount: installments,
       installmentAmount,
-      totalAmount: amount,
+      totalAmount: usdcTotal.toString(),
       frequencyDays: 30,
       interestRate: '2.5', // Mock interest rate
-      description: `${installments}x of ${parseFloat(installmentAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })} BRL`
+      description: `${installments}x of ${parseFloat(installmentAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })} USDC`
     });
   }
   
@@ -43,6 +44,10 @@ export function QuotationPage() {
   const [usingMockData, setUsingMockData] = useState<boolean>(false);
 
   useEffect(() => {
+    actions.setSelectedAsset('USDC'); // Force USDC on mount
+  }, [actions]);
+
+  useEffect(() => {
     const fetchQuotation = async () => {
       if (!state.product) return;
       
@@ -51,10 +56,13 @@ export function QuotationPage() {
         // Fetch real quotation from API
         const response: QuotationResponse = await apiService.getQuotation(state.product.price);
         
-        // The error was that 'data' does not exist on 'QuotationResponse'
-        // Based on the type definition, options are directly on the response object
         if (response.success && response.options) {
-          setQuotationOptions(response.options);
+          const convertedOptions = response.options.map(opt => ({
+            ...opt,
+            totalAmount: (parseFloat(opt.totalAmount) / 5.7).toString(),
+            installmentAmount: (parseFloat(opt.installmentAmount) / 5.7).toString()
+          }));
+          setQuotationOptions(convertedOptions);
           setUsingMockData(false);
         } else {
           console.warn('API returned success:false or no options, using mock data');
@@ -108,23 +116,12 @@ export function QuotationPage() {
   };
 
   const formatAmount = (amount: string) => {
-    const brlValue = parseFloat(amount);
-    const asset = state.selectedAsset || 'USDC';
-    const assetValue = pricingService.convertToAsset(brlValue, asset);
+    const usdcValue = parseFloat(amount);
     return (
       <span className="flex flex-col">
-        <span className="text-foreground font-semibold">BRL {brlValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        <span className="text-xs text-muted-foreground font-mono">
-          ≈ {pricingService.formatCurrency(assetValue, asset)}
-        </span>
+        <span className="text-foreground font-semibold">USDC {usdcValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
       </span>
     );
-  };
-
-  const formatDate = (daysFromNow: number) => {
-    const date = new Date();
-    date.setDate(date.getDate() + daysFromNow);
-    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   if (loading) {
@@ -169,31 +166,6 @@ export function QuotationPage() {
           </Badge>
         )}
 
-        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-border/50 mb-8">
-          <div>
-            <h4 className="font-semibold text-foreground">Currency Preference</h4>
-            <p className="text-xs text-muted-foreground">Choose your preferred on-chain asset</p>
-          </div>
-          <div className="flex bg-background border rounded-lg p-1">
-            <Button 
-              variant={state.selectedAsset === 'USDC' ? 'default' : 'ghost'} 
-              size="sm" 
-              className="h-8 px-4"
-              onClick={() => actions.setSelectedAsset('USDC')}
-            >
-              USDC
-            </Button>
-            <Button 
-              variant={state.selectedAsset === 'XLM' ? 'default' : 'ghost'} 
-              size="sm" 
-              className="h-8 px-4"
-              onClick={() => actions.setSelectedAsset('XLM')}
-            >
-              XLM
-            </Button>
-          </div>
-        </div>
-
         <div className="grid gap-4">
           {quotationOptions.map((option, index) => (
             <Card 
@@ -219,7 +191,7 @@ export function QuotationPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-muted-foreground line-through">Total: {formatAmount(state.product?.price || '0')}</div>
+                    <div className="text-sm text-muted-foreground line-through">Total: {formatAmount((parseFloat(state.product?.price || '0') / 5.7).toString())}</div>
                     <div className="text-lg font-bold text-primary">{formatAmount(option.totalAmount)} Total</div>
                     <span className="text-sm font-medium text-primary">
                       {option.interestRate === '0.0000' 
@@ -253,13 +225,13 @@ export function QuotationPage() {
                     <div className="p-3 bg-background/50 rounded-lg border border-border/50">
                       <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Savings</p>
                       <p className="text-sm font-bold text-blue-600">
-                        {pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.savings.vsTradionalBNPL, state.selectedAsset), state.selectedAsset)}
+                        {pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.savings.vsTradionalBNPL, 'USDC'), 'USDC')}
                       </p>
                     </div>
                     <div className="p-3 bg-background/50 rounded-lg border border-border/50">
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Total ({state.selectedAsset})</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Total (USDC)</p>
                       <p className="text-sm font-bold text-green-600">
-                        {pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.totalConsumerPayment, state.selectedAsset), state.selectedAsset)}
+                        {pricingService.formatCurrency(pricingService.convertToAsset(selectedPlanPricing.totalConsumerPayment, 'USDC'), 'USDC')}
                       </p>
                     </div>
                     <div className="p-3 bg-background/50 rounded-lg border border-border/50">
