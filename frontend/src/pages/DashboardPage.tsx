@@ -3,7 +3,7 @@ import { DEMO_PRODUCT } from '../types';
 import {
   ExternalLink, Calendar, DollarSign, CheckCircle, Clock, RefreshCw,
   Home, TrendingUp, Wallet, Activity, BarChart3, Target, Award, Link2, AlertCircle, X, ScrollText, Zap,
-  Shield
+  Shield, Anchor
 } from 'lucide-react';
 import { useBNPL } from '../hooks/useBNPL';
 import { Button } from '../components/ui/button';
@@ -634,7 +634,12 @@ export function DashboardPage() {
                           <div className="text-xs text-zinc-500 mt-0.5">
                             Due: {formatDate(installment.dueDate)}
                           </div>
-                          {installment.txHash && (
+                          {installment.txHash === 'pix_confirmed' ? (
+                            <div className="inline-flex items-center gap-1 mt-1.5 text-[10px] text-orange-500/80">
+                              <Anchor className="w-3 h-3" />
+                              Liquidado via Âncora Pix
+                            </div>
+                          ) : installment.txHash ? (
                             <a
                               href={installment.explorerUrl}
                               target="_blank"
@@ -644,7 +649,7 @@ export function DashboardPage() {
                               <ExternalLink className="w-3 h-3" />
                               View receipt
                             </a>
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
