@@ -818,6 +818,14 @@ app.post('/api/soroban/confirm-first-payment', async (req, res) => {
   try {
     const { contratoId, txHash } = req.body;
 
+    const contract = contracts.find(c => c.id === contratoId);
+    
+    console.log('\n======================================================');
+    console.log(`⚓ [ETHERFUSE ANCHOR] PIX Confirmed! Emulating BRL -> USDC conversion...`);
+    console.log(`🔗 [PROTOCOL x402] Routing ${contract?.installmentAmount || 'USDC'} to Merchant Payment Pointer...`);
+    console.log(`💰 [SETTLEMENT] Merchant (${contract?.merchantPublicKey || 'SyloPay'}) received USDC via Anchor!`);
+    console.log('======================================================\n');
+
     // Na demo, o orchestrator (backend) assina a transação de atualização de status
     // para facilitar o fluxo após o Pix ser confirmado
     const updateResult = await sorobanService.finalizarPagamentoParcela(
@@ -829,7 +837,8 @@ app.post('/api/soroban/confirm-first-payment', async (req, res) => {
     res.json({
       success: true,
       txHash: updateResult.txHash,
-      explorerUrl: updateResult.explorerUrl
+      explorerUrl: updateResult.explorerUrl,
+      anchorMessage: `Etherfuse FX Anchor: PIX converted to USDC. Settled via x402 protocol.`
     });
   } catch (error) {
     console.error('[Route] /api/soroban/confirm-first-payment error:', error);

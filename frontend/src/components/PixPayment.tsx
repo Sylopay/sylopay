@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Copy, CheckCircle, Clock, RefreshCw, AlertCircle, Zap, ExternalLink, ArrowRightLeft } from 'lucide-react';
+import { Copy, CheckCircle, Clock, RefreshCw, AlertCircle, Zap, ExternalLink, ArrowRightLeft, Anchor } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -211,6 +211,21 @@ export function PixPayment({
               <span>Rate: 1 USDC = {exchangeRate.toFixed(2)} BRL</span>
             </div>
           </div>
+        </div>
+
+        <div className="bg-[#1a1a1a] p-3 rounded-lg border border-zinc-800 flex items-center justify-between">
+           <div className="flex items-center gap-2">
+             <div className="bg-orange-500/20 p-1.5 rounded-md">
+               <Anchor className="w-4 h-4 text-orange-500" />
+             </div>
+             <div>
+               <p className="text-xs font-semibold text-zinc-300">Etherfuse FX Anchor</p>
+               <p className="text-[10px] text-zinc-500">Protocol x402 Auto-Settlement</p>
+             </div>
+           </div>
+           <Badge variant="outline" className="border-orange-500/30 text-orange-500 bg-orange-500/5 text-[10px]">
+             Testnet
+           </Badge>
         </div>
 
         <div className="space-y-2">
