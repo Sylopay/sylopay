@@ -280,16 +280,31 @@ app.post('/api/quotation', async (req, res) => {
     // Simulated Blend Protocol live rate: 1.5–3.5% borrow range
     const blendBorrowRate = 1.5 + Math.random() * 2; // e.g. 2.31%
     // Consumer rate = 80% of Blend borrow rate (SyloPay discount vs direct DeFi)
-    const consumerRate = (blendBorrowRate * 0.8).toFixed(2);   // e.g. 1.85%
+    const consumerRate = blendBorrowRate * 0.8;   // e.g. 1.85%
+
+    // SyloPay platform fees
+    const MERCHANT_FEE_RATE = 0.035;  // 3.5% charged to merchant (included in product price)
+    const SYLOPAY_CONSUMER_MARGIN = 0.005; // 0.5% SyloPay margin on consumer installments
+    const TRANSACTION_FEE_USDC = 0.25; // flat $0.25 USDC per contract
+
+    const principal = parseFloat(amount); // BRL amount
 
     const options = [2, 3, 4].map(count => {
-      const installmentValue = (parseFloat(amount) / count).toFixed(2);
+      // Interest only applies for installment plans (not 1x)
+      const interestRate = consumerRate + SYLOPAY_CONSUMER_MARGIN; // total consumer rate
+      const interestAmount = principal * (interestRate / 100);
+      const totalWithInterest = principal + interestAmount;
+      const installmentValue = (totalWithInterest / count).toFixed(2);
+
       return {
         installmentsCount: count,
         installmentAmount: installmentValue,
-        totalAmount: amount,
+        totalAmount: totalWithInterest.toFixed(2),
         frequencyDays: 30,
-        interestRate: consumerRate,   // Live Blend-derived rate
+        interestRate: interestRate.toFixed(2),
+        interestAmount: interestAmount.toFixed(2),
+        merchantFeeRate: (MERCHANT_FEE_RATE * 100).toFixed(1),
+        transactionFee: TRANSACTION_FEE_USDC,
         blendBorrowRate: parseFloat(blendBorrowRate.toFixed(2)),
         description: `${count}x of BRL ${installmentValue}`
       };
@@ -300,7 +315,9 @@ app.post('/api/quotation', async (req, res) => {
       originalAmount: amount,
       options,
       currency: 'BRL',
+      consumerRate: parseFloat(consumerRate.toFixed(2)),
       blendBorrowRate: parseFloat(blendBorrowRate.toFixed(2)),
+      merchantFeeRate: (MERCHANT_FEE_RATE * 100).toFixed(1),
       generatedAt: new Date().toISOString()
     });
   } catch (error) {
@@ -836,26 +853,131 @@ app.get('/api/soroban/contract/:contratoId', async (req, res) => {
   }
 });
 
+// ─── Security: On-chain USDC payment verifier ───────────────────────────────
+// Fetches txHash from Stellar Horizon and confirms that:
+//   1. The transaction is SUCCESSFUL on-chain.
+//   2. It contains a USDC Payment operation to the correct merchant address.
+//   3. The amount is within 5% tolerance (accounts for stroops rounding).
+// Merchant address and amount are fetched from the Soroban contract directly
+// to be consistent with the XDR prepared in prepararTransacaoPagarParcela.
+async function verifyUsdcPaymentOnChain(
+  txHash: string,
+  contratoId: string,
+  numeroParcela: number
+): Promise<{ valid: boolean; reason?: string }> {
+  try {
+    // Step 1: Fetch the authoritative merchant address and installment amount
+    // from the Soroban contract (same source used when building the payment XDR)
+    let expectedMerchantPublicKey: string;
+    let expectedAmountUsdc: number;
+    try {
+      const onChain = await sorobanService.statusContrato(contratoId);
+      const parcela = onChain.parcelas.find(p => p.numero === numeroParcela);
+      if (!parcela) {
+        return { valid: false, reason: `Installment ${numeroParcela} not found in on-chain contract` };
+      }
+      expectedMerchantPublicKey = onChain.merchant;
+      // valorUsdc is stored as stroops (i128 × 10^-7)
+      expectedAmountUsdc = parcela.valorUsdc / 10_000_000;
+      console.log(`[Verify] Soroban merchant: ${expectedMerchantPublicKey}, expected: ${expectedAmountUsdc} USDC`);
+    } catch (sorobanError) {
+      // Soroban RPC unavailable — fall back to local contract storage
+      console.warn('[Verify] Soroban unavailable, falling back to local storage for verification');
+      const localContract = contracts.find(c => c.id === contratoId);
+      if (!localContract) return { valid: false, reason: 'Contract not found locally or on-chain' };
+      expectedMerchantPublicKey = localContract.merchantPublicKey || process.env.STELLAR_MERCHANT_PUBLIC || '';
+      expectedAmountUsdc = parseFloat(localContract.installmentAmount) || (localContract.totalAmount / localContract.installmentsCount);
+    }
+
+    // Step 2: Verify transaction exists and is successful on Horizon
+    const response = await fetch(`${HORIZON_URL}/transactions/${txHash}`);
+    if (!response.ok) {
+      return { valid: false, reason: `Transaction not found on Stellar network (HTTP ${response.status})` };
+    }
+    const tx: any = await response.json();
+    if (!tx.successful) {
+      return { valid: false, reason: `Transaction ${txHash} is NOT successful on-chain` };
+    }
+
+    // Step 3: Fetch and check operations
+    const opsResp = await fetch(`${HORIZON_URL}/transactions/${txHash}/operations`);
+    if (!opsResp.ok) {
+      return { valid: false, reason: 'Could not fetch transaction operations from Horizon' };
+    }
+    const opsData: any = await opsResp.json();
+    const operations: any[] = opsData._embedded?.records || [];
+
+    // Step 4: Find a USDC payment to the merchant
+    const usdcPayment = operations.find((op: any) =>
+      op.type === 'payment' &&
+      op.asset_code === 'USDC' &&
+      op.to === expectedMerchantPublicKey
+    );
+
+    if (!usdcPayment) {
+      return {
+        valid: false,
+        reason: `No USDC payment to merchant (${expectedMerchantPublicKey}) found. Operations: ${JSON.stringify(operations.map((o: any) => ({ type: o.type, to: o.to, asset: o.asset_code, amount: o.amount })))}`
+      };
+    }
+
+    // Step 5: Validate amount with 5% tolerance (stroops rounding + fee variations)
+    const paidAmount = parseFloat(usdcPayment.amount);
+    const tolerance = Math.max(expectedAmountUsdc * 0.05, 0.01); // min 0.01 USDC tolerance
+    if (Math.abs(paidAmount - expectedAmountUsdc) > tolerance) {
+      return {
+        valid: false,
+        reason: `Amount mismatch: paid ${paidAmount} USDC, expected ${expectedAmountUsdc} USDC (±5% tolerance)`
+      };
+    }
+
+    console.log(`[Verify] ✅ Payment verified: ${paidAmount} USDC to ${expectedMerchantPublicKey} (tx: ${txHash})`);
+    return { valid: true };
+  } catch (error) {
+    return { valid: false, reason: `Verification error: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
 // POST /api/soroban/confirm-first-payment
+// NOTE: This endpoint is triggered by the Etherfuse webhook (HMAC-verified) or sandbox
+// simulation after a Pix payment. The txHash may be a real Stellar tx (64 hex chars) or
+// an Etherfuse/sandbox order ID. On-chain verification is only applied to real Stellar txs.
 app.post('/api/soroban/confirm-first-payment', async (req, res) => {
   try {
     const { contratoId, txHash } = req.body;
 
+    if (!contratoId || !txHash) {
+      return res.status(400).json({ error: 'contratoId and txHash are required' });
+    }
+
     const contract = contracts.find(c => c.id === contratoId);
-    
-    console.log('\n======================================================');
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    // ─── SECURITY: Verify on-chain only for real Stellar transaction hashes ───
+    // Stellar txHashes are exactly 64 lowercase hex characters.
+    // Etherfuse sandbox IDs (e.g. "sandbox-order-XXX") are skipped — their
+    // authenticity is guaranteed by the HMAC webhook signature on /webhook/etherfuse.
+    const isStellarTxHash = /^[a-f0-9]{64}$/i.test(txHash);
+    if (isStellarTxHash) {
+      const verification = await verifyUsdcPaymentOnChain(txHash, contratoId, 1);
+      if (!verification.valid) {
+        console.error(`[Security] Forged first-payment attempt on ${contratoId}: ${verification.reason}`);
+        return res.status(402).json({ error: 'Payment verification failed', reason: verification.reason });
+      }
+    } else {
+      console.log(`[Verify] Sandbox/Etherfuse txHash detected (${txHash}) — skipping Horizon check (HMAC-verified flow)`);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    console.log('\n======================================================')
     console.log(`⚓ [ETHERFUSE ANCHOR] PIX Confirmed! Emulating BRL -> USDC conversion...`);
-    console.log(`🔗 [PROTOCOL x402] Routing ${contract?.installmentAmount || 'USDC'} to Merchant Payment Pointer...`);
-    console.log(`💰 [SETTLEMENT] Merchant (${contract?.merchantPublicKey || 'SyloPay'}) received USDC via Anchor!`);
+    console.log(`🔗 [PROTOCOL x402] Routing to Merchant Payment Pointer...`);
+    console.log(`💰 [SETTLEMENT] Merchant received USDC via Anchor!`);
     console.log('======================================================\n');
 
-    // Na demo, o orchestrator (backend) assina a transação de atualização de status
-    // para facilitar o fluxo após o Pix ser confirmado
-    const updateResult = await sorobanService.finalizarPagamentoParcela(
-      contratoId,
-      1, // Sempre a primeira parcela no checkout
-      txHash
-    );
+    const updateResult = await sorobanService.finalizarPagamentoParcela(contratoId, 1, txHash);
 
     res.json({
       success: true,
@@ -874,12 +996,24 @@ app.post('/api/soroban/confirm-payment', async (req, res) => {
   try {
     const { contratoId, numeroParcela, txHash } = req.body;
 
-    // Orchestrator (backend) assina a transação de atualização de status
-    const updateResult = await sorobanService.finalizarPagamentoParcela(
-      contratoId,
-      numeroParcela,
-      txHash
-    );
+    if (!contratoId || !numeroParcela || !txHash) {
+      return res.status(400).json({ error: 'contratoId, numeroParcela and txHash are required' });
+    }
+
+    const contract = contracts.find(c => c.id === contratoId);
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    // ─── SECURITY: Verify USDC payment on-chain using Soroban as source of truth ───
+    const verification = await verifyUsdcPaymentOnChain(txHash, contratoId, numeroParcela);
+    if (!verification.valid) {
+      console.error(`[Security] Forged payment attempt on ${contratoId} parcela ${numeroParcela}: ${verification.reason}`);
+      return res.status(402).json({ error: 'Payment verification failed', reason: verification.reason });
+    }
+    // ─────────────────────────────────────────────────────────
+
+    const updateResult = await sorobanService.finalizarPagamentoParcela(contratoId, numeroParcela, txHash);
 
     res.json({
       success: true,
