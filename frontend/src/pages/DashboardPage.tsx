@@ -58,7 +58,7 @@ export function DashboardPage() {
   // Modal States
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [pendingPaymentInstallment, setPendingPaymentInstallment] = useState<number | null>(null);
-  const [paymentStatusModal, setPaymentStatusModal] = useState<{ open: boolean; type: 'success' | 'error'; message: string; txHash?: string }>({ open: false, type: 'success', message: '' });
+  const [paymentStatusModal, setPaymentStatusModal] = useState<{ open: boolean; type: 'success' | 'error'; title?: string; message: string; txHash?: string }>({ open: false, type: 'success', message: '' });
 
   const sorobanContratoRef = useRef<SorobanContrato | null>(null);
   useEffect(() => {
@@ -178,12 +178,17 @@ export function DashboardPage() {
       
       await handleRefresh();
     } catch (err) {
-      console.error('[Dashboard] Erro:', err);
-      // Error Modal
+      console.error('[Dashboard] Error:', err);
+      // Detect user rejection from Freighter wallet
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isUserCancelled = /user rejected|cancelled|denied|declined/i.test(errMsg);
       setPaymentStatusModal({
         open: true,
-        type: 'error',
-        message: 'Payment failed: ' + (err instanceof Error ? err.message : 'Unknown error')
+        type: isUserCancelled ? 'error' : 'error',
+        title: isUserCancelled ? 'Payment Cancelled' : 'Payment Failed',
+        message: isUserCancelled
+          ? 'You cancelled the transaction in your Freighter wallet. No funds were moved. You can try again whenever you are ready.'
+          : 'Payment failed: ' + errMsg
       });
     } finally {
       setRefreshing(false);
@@ -338,7 +343,7 @@ export function DashboardPage() {
               )}
               
               <h3 className={`text-lg font-bold mb-2 ${paymentStatusModal.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-                {paymentStatusModal.type === 'success' ? 'Success!' : 'Transaction Failed'}
+                {paymentStatusModal.title ?? (paymentStatusModal.type === 'success' ? 'Success!' : 'Transaction Failed')}
               </h3>
               
               <p className="text-sm text-zinc-400 mb-6">

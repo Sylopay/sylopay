@@ -247,8 +247,9 @@ export async function prepararTransacaoPagarParcela(
   const account = await rpc.getAccount(clientePublicKey);
 
   // ── TX 1: pagamento clássico USDC ──────────────────────────────────────────
+  // Fee is set to minimum (100 stroops) — the Fee Bump in submit-payment covers actual cost
   const paymentTx = new TransactionBuilder(account, {
-    fee: '100000',
+    fee: BASE_FEE,
     networkPassphrase: getNetworkPassphrase(),
   })
     .addOperation(Operation.payment({
